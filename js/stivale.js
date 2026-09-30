@@ -187,7 +187,7 @@ function groundUnder(x, y, vy, drop) {
 function onPlatform(x, y) { return PLATFORMS.some(([px, pw, py]) => x > px && x < px + pw && Math.abs(y - py) < 3); }
 function pop(x, y, s, c = '#ffffff', big = 0) { S.pops.push({ x, y, s, c, big, t: 0 }); }
 function boom(x, y, r = 1) { S.fx.push({ k: 'boom', x, y, r, t: 0 }); S.shake = Math.max(S.shake, 8 * r); Audio.sfx('boom'); }
-function spark(x, y, c = '#ffe08a', n = 6) { for (let i = 0; i < n; i++) S.fx.push({ k: 'sp', x, y, vx: rand(-260, 260), vy: rand(-320, 40), c, t: 0, life: rand(0.2, 0.45) }); }
+function spark(x, y, c = '#ffe08a', n = 6) { S.fx.push({ k: 'hit', x, y, t: 0 }); for (let i = 0; i < n; i++) S.fx.push({ k: 'sp', x, y, vx: rand(-260, 260), vy: rand(-320, 40), c, t: 0, life: rand(0.2, 0.45) }); }
 function alive() { return S.players.filter((p) => !p.out && !p.dead); }
 
 /* ---------------- players ---------------- */
@@ -331,6 +331,7 @@ function hurtEnemy(e, dmg, by) {
     const pts = { bruto: 800, uff: 500, drone: 400, robo: 150 }[e.type] || 200;
     if (by && by.score !== undefined) { by.score += pts; by.kills++; }
     if (e.type === 'drone') boom(e.x, e.y - 20, 0.8); else if (e.type === 'robo') { spark(e.x, e.y - 50, '#c8d2dc', 12); } else spark(e.x, e.y - 80, '#ffcf8a', 10);
+    if (e.type !== 'drone') S.fx.push({ k: 'smoke', x: e.x, y: e.y, t: 0 });
     Audio.sfx(e.type === 'fante' ? 'ko' : 'break');
     const chance = { bruto: 0.6, uff: 0.4 }[e.type] || 0.08;
     if (Math.random() < chance) S.items.push({ id: nid(), x: e.x, y: e.y, vy: -300, k: Math.random() < 0.5 ? 'bomb' : pick(['H', 'S', 'F', 'R']) });
@@ -676,7 +677,7 @@ function step(dt) {
   stepShots(dt);
   for (const q of S.pris) { q.t += dt; if (q.st === 'free') q.x += 170 * dt * (q.t > 0.8 ? 1 : 0); }
   for (const f of S.fx) { f.t += dt; if (f.k === 'sp') { f.vy += 900 * dt; f.x += f.vx * dt; f.y += f.vy * dt; } if (f.k === 'wave') { f.x += f.dir * 520 * dt; for (const p of alive()) if (p.y >= GROUND - 2 && Math.abs(p.x - f.x) < 30) kill(p); } }
-  S.fx = S.fx.filter((f) => f.t < ({ sp: f.life, wave: 1.6, ring: 0.6, mark: 0.95, puddle: 1.2 }[f.k] || 0.6));
+  S.fx = S.fx.filter((f) => f.t < ({ sp: f.life, wave: 1.6, ring: 0.6, mark: 0.95, puddle: 1.2, hit: 0.15, smoke: 0.7 }[f.k] || 0.6));
   for (const p of S.pops) p.t += dt;
   S.pops = S.pops.filter((p) => p.t < (p.big ? 1.4 : 0.8));
   for (const o of S.props) o.shake = Math.max(0, (o.shake || 0) - dt);
@@ -819,7 +820,34 @@ function drawFilm() {
   if (Math.random() < 0.3) { g.fillStyle = 'rgba(30,20,10,.25)'; g.fillRect(Math.random() * W, 0, 1.5, H); }   // scratches on the film
   g.restore();
 }
+/* ---------------- the painted objects, shots, effects and HUD (tools/build_fx.py, atlas 'fx') ---------------- */
+const FXF = (k) => IMG.fx && window.ATLAS.fx && window.ATLAS.fx[k];
+function fxs(k, x, y, w, opt = {}) { const f = FXF(k); if (!f) return false; spr('fx', k, x, y, { ...opt, scale: w / f[2] }); return true; }
+function fxBox(k, x, y, w, h, alpha = 1) { const f = FXF(k); if (!f) return false; g.save(); g.globalAlpha *= alpha; g.drawImage(IMG.fx, f[0], f[1], f[2], f[3], x, y, w, h); g.restore(); return true; }
+/* a shot drawn along its flight: nat = where the drawing points (1 right, -1 left) */
+function fxShot(k, s, w, nat = -1, opt = {}) {
+  const vx = s.vx || 0, vy = s.vy || 0;
+  if (Math.abs(vy) > Math.abs(vx) * 1.2) { const a = Math.atan2(vy, vx); return fxs(k, s.x, s.y, w, { ...opt, rot: nat > 0 ? a : a - Math.PI }); }
+  return fxs(k, s.x, s.y, w, { ...opt, face: (vx >= 0 ? 1 : -1) * nat });
+}
+const ESPR = { ray: ['en_0', 58], orb: ['en_1', 58], spark: ['en_2', 50], shout: ['en_3', 52, 1], dbomb: ['en_4', 38, 0], gear: ['en_6', 50, 1], snow: ['en_7', 46], ball: ['en_8', 124, -1], torp: ['en_9', 92], drop: ['en_10', 42], crys: ['en_11', 56], cball: ['en_12', 42, 1], spear: ['en_0', 58] };
+function drawFoeShotFx(s) {
+  if (s.k === 'shield') return fxs('en_5', s.x, s.y, 100, { sx: Math.cos(s.spin) * 0.5 + 0.6, rot: s.spin * 0.2 });
+  if (s.k === 'beam') {
+    if (s.t < 0.7) return false;   // the flickering warning line stays
+    const k = Math.min(1, (s.t - 0.7) * 8) * Math.min(1, s.life * 6), x0 = Math.min(s.x, s.x + s.dir * s.len);
+    return fxBox('ef_6', x0, s.y - 32 * k, s.len, 64 * k);
+  }
+  if (s.k === 'tract') {
+    const on = s.t > 0.6, a = on ? Math.min(1, s.life * 4) : 0.35 + Math.sin(T * 30) * 0.15, top = s.y - 20;
+    return fxBox('ef_7', s.x - 75, top, 150, GROUND - top + 10, a);
+  }
+  const m = ESPR[s.k]; if (!m) return false;
+  if (m[2] === 0) return fxs(m[0], s.x, s.y, m[1]);
+  return fxShot(m[0], s, m[1], m[2] || -1);
+}
 function drawFoeShot(s) {
+  if (IMG.fx && drawFoeShotFx(s)) return;
   g.lineWidth = 3; g.strokeStyle = '#1a1010';
   switch (s.k) {
     case 'shield': { g.save(); g.translate(s.x, s.y); g.scale(Math.cos(s.spin) * 0.5 + 0.6, 1); g.lineWidth = 5; g.strokeStyle = '#2a1a10'; for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#e8d6b4' : '#b8402a'; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 44, i * Math.PI / 4, (i + 1) * Math.PI / 4); g.fill(); } g.beginPath(); g.arc(0, 0, 44, 0, 7); g.stroke(); g.fillStyle = '#d8a020'; g.beginPath(); g.arc(0, 0, 12, 0, 7); g.fill(); g.stroke(); g.restore(); break; }
@@ -887,7 +915,7 @@ function drawBoss() {
   else if (B.t < 0.4 && F.wind !== undefined) f = F.wind;
   else f = F[B.pose || 'a'];
   if (D.fly) { g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(B.x, GROUND - 4, 110, 16, 0, 0, 7); g.fill(); }
-  if (B.st === 'tired' && !B.dead) { g.save(); g.globalAlpha = 0.5 + Math.sin(T * 10) * 0.3; ptxt('* * *', B.x, B.y - D.ht * D.sc - 20, 16, '#fff1a6', 'center'); g.restore(); }
+  if (B.st === 'tired' && !B.dead) { const sy = B.y - D.ht * D.sc - 20; if (FXF('ui_6')) for (let i = 0; i < 3; i++) { const a = T * 4 + i * 2.1; fxs('ui_6', B.x + Math.cos(a) * 50, sy + Math.sin(a) * 12, 26, { rot: a }); } else { g.save(); g.globalAlpha = 0.5 + Math.sin(T * 10) * 0.3; ptxt('* * *', B.x, sy, 16, '#fff1a6', 'center'); g.restore(); } }
   const bob = B.st === 'walk' && !D.fly ? -Math.abs(Math.sin(B.t * 6)) * 6 : 0;
   const shake = B.dead && B.t < 1.2 ? rand(-4, 4) : 0;
   spr(D.sh, `${D.k}_${f}`, B.x + shake, B.y + bob, { scale: D.sc, face: B.face, flash: B.flash > 0 ? 0.3 : 0, sy: B.st === 'slam' && B.t > 0.7 && B.t < 0.85 ? 0.9 : 1 });
@@ -899,6 +927,8 @@ function draw() {
   g.translate(-Math.round(S.cam), 0);
   // shadows of the falling crystals, oil puddles
   for (const f of S.fx) {
+    if (f.k === 'mark' && fxs('en_15', f.x, GROUND + 2, 26 + f.t / 0.95 * 60, { alpha: 0.4 + f.t * 0.6 })) continue;
+    if (f.k === 'puddle' && fxs('en_13', f.x, GROUND + 2, 90, { alpha: 1 - f.t / 1.2 })) continue;
     if (f.k === 'mark') { const k = f.t / 0.95; g.fillStyle = `rgba(0,0,0,${0.2 + k * 0.4})`; g.beginPath(); g.ellipse(f.x, GROUND - 2, 10 + k * 26, 5 + k * 6, 0, 0, 7); g.fill(); }
     else if (f.k === 'puddle') { g.fillStyle = `rgba(30,24,40,${0.7 * (1 - f.t / 1.2)})`; g.beginPath(); g.ellipse(f.x, GROUND - 2, 34, 7, 0, 0, 7); g.fill(); }
   }
@@ -906,7 +936,7 @@ function draw() {
   const city = IMG[MISSIONS[MI].bg] ? MISSIONS[MI].bg : 'roma';
   if (IMG.piatt && window.ATLAS.piatt && window.ATLAS.piatt[`${city}_deco`]) DECO_X.forEach((dx, i) => { if (dx > S.cam - 300 && dx < S.cam + W + 300) spr('piatt', `${city}_deco`, dx, GROUND + 6, { scale: 0.75, face: i % 2 ? -1 : 1 }); });
   // props
-  for (const o of S.props) if (o.hp > 0) { spr('items', o.k, o.x + (o.shake > 0 ? rand(-3, 3) : 0), o.y, { scale: 1.6 }); }
+  for (const o of S.props) if (o.hp > 0) { const ox = o.x + (o.shake > 0 ? rand(-3, 3) : 0); if (!fxs(o.k === 'barrel' ? 'obj_7' : 'obj_6', ox, o.y, o.k === 'barrel' ? 76 : 96)) spr('items', o.k, ox, o.y, { scale: 1.6 }); }
   // prisoners: pris 0-3 legati · 4-7 liberi
   for (const q of S.pris) {
     if (q.st === 'tied') {
@@ -917,6 +947,7 @@ function draw() {
   // items
   for (const it of S.items) {
     const b = Math.sin(T * 6) * 4;
+    if (fxs(it.k === 'bomb' ? 'obj_4' : `obj_${'HSFR'.indexOf(it.k)}`, it.x, it.y + b, 78)) { if (it.k !== 'bomb') ptitle(it.k, it.x + 34, it.y - 50 + b, 16, '#ffffff', WCOL[it.k]); continue; }
     if (it.k === 'bomb') { g.fillStyle = '#3a4a2a'; g.beginPath(); g.arc(it.x, it.y - 22 + b, 16, 0, 7); g.fill(); ptxt('B', it.x, it.y - 16 + b, 12, '#ffd35a', 'center'); }
     else { g.fillStyle = '#10141c'; g.fillRect(it.x - 22, it.y - 48 + b, 44, 44); g.strokeStyle = WCOL[it.k]; g.lineWidth = 3; g.strokeRect(it.x - 22, it.y - 48 + b, 44, 44); ptitle(it.k, it.x, it.y - 14 + b, 24, '#ffffff', WCOL[it.k]); }
   }
@@ -932,10 +963,11 @@ function draw() {
     } else {
       // big bouncing sign, like the arcades: SALI!
       const by = V.y - 215 + Math.abs(Math.sin(T * 5)) * -18;
+      if (fxs('ui_2', V.x, by - 4, 150)) { ptitle('SALI!', V.x, by - 14, 20, '#ffffff', '#ff5b4f'); if (alive().some((p) => Math.abs(p.x - V.x) < 220)) ptxt('SALTACI SOPRA O PREMI SU', V.x, by + 90, 9, '#ffe3a0', 'center'); } else {
       g.fillStyle = '#ffd35a'; g.fillRect(V.x - 58, by - 34, 116, 40); g.fillStyle = '#1a1020'; g.fillRect(V.x - 54, by - 30, 108, 32);
       ptitle('SALI!', V.x, by - 6, 20, '#ffffff', '#ff5b4f');
       g.fillStyle = '#ffd35a'; g.beginPath(); g.moveTo(V.x - 16, by + 10); g.lineTo(V.x + 16, by + 10); g.lineTo(V.x, by + 30); g.fill();
-      if (alive().some((p) => Math.abs(p.x - V.x) < 220)) ptxt('SALTACI SOPRA O PREMI SU', V.x, by + 52, 9, '#ffe3a0', 'center');
+      if (alive().some((p) => Math.abs(p.x - V.x) < 220)) ptxt('SALTACI SOPRA O PREMI SU', V.x, by + 52, 9, '#ffe3a0', 'center'); }
     }
   } else spr('arte', 'vesp_5', V.x, V.y, { scale: 1.0, alpha: 0.7 });
   // enemies
@@ -951,20 +983,30 @@ function draw() {
     const [key, sy, sx] = heroFrame(p), R = ROSTER[p.hero];
     const twin = p.slot > 0 && S.players[0].hero === p.hero;   // same animal twice: the second one is bluish
     spr('arte', key, p.x, p.y, { scale: HERO_SC, sy, sx, face: p.face, img: twin ? tinted('arte', key, '#2a5aff', 'source-atop', 0.3) : undefined });
-    if (!p.dead && p.cd > WEAPONS[p.w].rate - 0.06 && p.aim !== 'f') { const [mx, my] = muzzle(p); g.fillStyle = '#fff1a6'; g.beginPath(); g.arc(mx, my, 9, 0, 7); g.fill(); }
+    if (!p.dead && p.cd > WEAPONS[p.w].rate - 0.06) { const [mx, my] = muzzle(p); if (!fxs('he_6', mx + (p.aim === 'f' ? p.face * 14 : 0), my, 40, p.aim === 'f' ? { face: p.face } : { rot: p.aim === 'u' ? -Math.PI / 2 : Math.PI / 2 }) && p.aim !== 'f') { g.fillStyle = '#fff1a6'; g.beginPath(); g.arc(mx, my, 9, 0, 7); g.fill(); } }
     ptxt(`${p.slot + 1}P`, p.x, p.y - 160, 9, R.color, 'center');
   }
   if (V.rider) ptxt(`${V.rider.slot + 1}P`, V.x, V.y - 200, 9, ROSTER[V.rider.hero].color, 'center');
   // shots
+  const HSPR = { P: ['he_0', 46], H: ['he_1', 42], S: ['he_2', 28], R: ['he_4', 74], L: ['he_5', 68] };
   for (const s of S.shots) {
+    if (IMG.fx && s.w === 'F') { const k = 1 - s.life / 0.38; if (fxShot('he_3', s, 50 + k * 70, 1, { alpha: 1 - k * 0.7 })) continue; }
+    if (IMG.fx && HSPR[s.w] && fxShot(HSPR[s.w][0], s, HSPR[s.w][1], 1)) continue;
     if (s.w === 'F') { const k = 1 - s.life / 0.38; g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = `rgba(255,${160 - k * 100},40,${0.8 - k * 0.6})`; g.beginPath(); g.arc(s.x, s.y, 14 + k * 30, 0, 7); g.fill(); g.restore(); }
     else if (s.w === 'R' || s.w === 'L') { g.fillStyle = s.w === 'L' ? '#ffcf5a' : '#ff5b8a'; g.beginPath(); g.arc(s.x, s.y, s.w === 'L' ? 16 : 9, 0, 7); g.fill(); g.fillStyle = 'rgba(255,200,120,.5)'; g.fillRect(s.x - Math.sign(s.vx) * 30, s.y - 3, Math.sign(s.vx) * 24, 6); }
     else { g.fillStyle = WCOL[s.w]; if (s.vy && !s.vx) g.fillRect(s.x - 2, s.y - 9, 4, 18); else g.fillRect(s.x - 9, s.y - 2, 18, 4); }
   }
   for (const s of S.foeShots) drawFoeShot(s);
-  for (const b of S.bombs) { g.save(); g.translate(b.x, b.y); g.rotate(b.rot); g.fillStyle = '#3a4a2a'; g.fillRect(-8, -10, 16, 20); g.fillStyle = '#c8d2dc'; g.fillRect(-3, -14, 6, 5); g.restore(); }
+  for (const b of S.bombs) { if (fxs('obj_5', b.x, b.y, 32, { rot: b.rot })) continue; g.save(); g.translate(b.x, b.y); g.rotate(b.rot); g.fillStyle = '#3a4a2a'; g.fillRect(-8, -10, 16, 20); g.fillStyle = '#c8d2dc'; g.fillRect(-3, -14, 6, 5); g.restore(); }
   // effects
   for (const f of S.fx) {
+    if (IMG.fx) {
+      if (f.k === 'boom') { const k = f.t / 0.6; if (fxs(`ef_${Math.min(3, Math.floor(k * 4))}`, f.x, f.y, 150 * f.r * (0.8 + k * 0.5), { alpha: k > 0.75 ? (1 - k) * 4 : 1 })) continue; }
+      if (f.k === 'ring') { const k = f.t / 0.6; if (fxs('ef_5', f.x, f.y, 120 + k * 800, { sy: 0.5, alpha: 1 - k })) continue; }
+      if (f.k === 'wave') { if (fxs('en_14', f.x, GROUND + 4, 110, { face: f.dir })) continue; }
+      if (f.k === 'hit') { const k = f.t / 0.15; if (fxs('he_7', f.x, f.y, 34 + k * 20, { alpha: 1 - k })) continue; }
+      if (f.k === 'smoke') { const k = f.t / 0.7; if (fxs('ef_4', f.x, f.y - k * 30, 100 + k * 40, { alpha: 1 - k })) continue; }
+    }
     if (f.k === 'boom') { const k = f.t / 0.6, r = (20 + k * 90) * f.r; g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1 - k; g.fillStyle = '#ffdb7a'; g.beginPath(); g.arc(f.x, f.y, r * 0.6, 0, 7); g.fill(); g.fillStyle = '#ff7a2a'; g.beginPath(); g.arc(f.x, f.y, r, 0, 7); g.fill(); g.restore(); }
     else if (f.k === 'sp') { g.fillStyle = f.c; g.globalAlpha = 1 - f.t / f.life; g.fillRect(f.x - 3, f.y - 3, 6, 6); g.globalAlpha = 1; }
     else if (f.k === 'wave') { g.fillStyle = '#ff9a5a'; g.globalAlpha = 0.8; g.beginPath(); g.ellipse(f.x, GROUND, 34, 40, 0, Math.PI, 0); g.fill(); g.globalAlpha = 1; }
@@ -975,9 +1017,23 @@ function draw() {
   drawHUD();
   drawFilm();
 }
+/* the HUD in the painted frames: brass and wood, dark ink on parchment */
+function hudFx(p, i) {
+  const x = i ? W - 310 : 10, col = ROSTER[p.hero].color, ink = '#3a2410';
+  fxBox('ui_0', x, 4, 300, 104);
+  ptxt(`${i + 1}P ${ROSTER[p.hero].name}`, x + 36, 44, 11, col);
+  ptxt(String(p.score).padStart(7, '0'), x + 266, 44, 11, ink, 'right', false);
+  if (p.out) { if (Math.floor(T * 2) % 2) ptxt('FUOCO PER CONTINUARE', x + 36, 74, 9, ink, 'left', false); return; }
+  const w = S.veh.rider === p ? null : p.w;
+  ptitle(w || 'V', x + 50, 80, 20, '#ffffff', w ? WCOL[w] : '#ff5b4f');
+  ptxt(w ? (p.ammo === Infinity ? 'INF.' : String(p.ammo)) : `${Math.max(0, S.veh.hp)}/10`, x + 72, 76, 10, ink, 'left', false);
+  fxs('ui_4', x + 150, 70, 24); ptxt(String(p.bombs), x + 166, 76, 10, ink, 'left', false);
+  for (let k = 0; k < p.lives; k++) fxs('ui_7', x + 214 + k * 20, 70, 18);
+}
 function drawHUD() {
   S.players.forEach((p, i) => {
     const x = i ? W - 300 : 20, col = ROSTER[p.hero].color;
+    if (FXF('ui_0')) { hudFx(p, i); return; }
     panel(x, 12, 280, 70, col);
     ptxt(`${i + 1}P ${ROSTER[p.hero].name}`, x + 14, 36, 11, col);
     ptxt(String(p.score).padStart(7, '0'), x + 266, 36, 11, '#ffd27a', 'right');
@@ -993,10 +1049,11 @@ function drawHUD() {
   if (S.hintT > 0 && S.veh.rider) { panel(W / 2 - 300, 96, 600, 40, '#ff5b4f'); ptxt('FUOCO: CANNONE · GRANATA: CLACSON · GIU + SALTO: SCENDI', W / 2, 122, 10, '#ffffff', 'center'); }
   if (S.t < 4) { const k = clamp(Math.min(S.t - 0.3, 4 - S.t) * 3, 0, 1); g.globalAlpha = k; ptitle('VIA!', W / 2, 420, 60, '#ffffff', '#ff5b4f'); g.globalAlpha = 1; }
   const B = S.boss;
-  if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
-  if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; ptitle(S.banner.a, W / 2, 300, 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
+  if (B && !B.dead && FXF('ui_1')) { bar(W / 2 - 200, H - 47, 400, 14, B.hp / B.max, '#ff6a4a', '#2a1a10'); fxBox('ui_1', W / 2 - 270, H - 70, 540, 60); ptxt(CAPI[B.id].name, W / 2, H - 76, 10, '#ffe0a0', 'center'); }
+  else if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
+  if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; const rib = fxBox('ui_5', W / 2 - 400, 206, 800, 170); ptitle(S.banner.a, W / 2, rib ? 290 : 300, rib ? 32 : 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, rib ? 406 : 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.12', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.13', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- the professor's briefing ---------------- */
@@ -1153,7 +1210,7 @@ window.Stivale = window.Assalto = {
 };
 (async function boot() {
   try { if (window.loadFonts) await window.loadFonts(); } catch (e) {}
-  await loadImages([['arte', 'assets/sprites/arte.png'], ['capi', 'assets/sprites/capi.png'], ['items', 'assets/sprites/items.png'], ['piatt', 'assets/sprites/piatt.png'], ['roma', 'assets/bg/roma.jpg']]).catch((e) => console.error('immagine mancante', e));
+  await loadImages([['arte', 'assets/sprites/arte.png'], ['capi', 'assets/sprites/capi.png'], ['items', 'assets/sprites/items.png'], ['piatt', 'assets/sprites/piatt.png'], ['fx', 'assets/sprites/fx.png'], ['roma', 'assets/bg/roma.jpg']]).catch((e) => console.error('immagine mancante', e));
   document.querySelector('#loading') && document.querySelector('#loading').remove();
   requestAnimationFrame(frame);
   // the other cities: painted backgrounds are optional (until they exist, Rome is recoloured)
