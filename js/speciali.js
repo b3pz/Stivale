@@ -448,6 +448,27 @@ function stepVolo(dt) {
   }
 }
 function spVoloBossDown() { const B = SP.boss; B.dead = true; const P = proj(B.x, B.y, B.z); for (let i = 0; i < 6; i++) setTimeout(() => SP && boom(P.x + rand(-160, 160), P.y + rand(-60, 60), 1.6), i * 250); ono(P.x, P.y - 80, 7, 1.8); freeze(0.4); for (const p of S.players) if (!p.out) p.score += 8000; SP.endT = 1.8; }
+/* the painted sea laid flat in perspective, one screen row at a time (like the old racing games), rushing at you */
+let SEAPAT = null, SEAFAR = null;
+function drawSeaTex() {
+  if (!SEAPAT) {
+    SEAPAT = g.createPattern(IMG.mare_volo, 'repeat');
+    // a softened copy for the far rows (a sharp texture shrunk that much only flickers)
+    const c = document.createElement('canvas'), w = IMG.mare_volo.width; c.width = c.height = w;
+    const x = c.getContext('2d'); x.filter = 'blur(6px)';
+    for (const dx of [-w, 0, w]) for (const dy of [-w, 0, w]) x.drawImage(IMG.mare_volo, dx, dy);
+    SEAFAR = g.createPattern(c, 'repeat');
+  }
+  const K = 240, surf = 440 + 1.15 * 180 - HOR, run = SP.t * 9;   // K: texture pixels per world unit
+  for (let y = HOR; y < H; y += 2) {
+    const z = surf / Math.max(1, y - HOR + 1), sc = 520 / (z * K), v0 = (z + run) * K, P = sc < 0.55 ? SEAFAR : SEAPAT;
+    P.setTransform(new DOMMatrix([sc, 0, 0, sc, W / 2, y - v0 * sc]));
+    g.fillStyle = P; g.fillRect(0, y, W, 2);
+  }
+  // haze towards the horizon
+  const hz = g.createLinearGradient(0, HOR, 0, HOR + 170); hz.addColorStop(0, 'rgba(255,190,150,.9)'); hz.addColorStop(0.5, 'rgba(255,190,150,.35)'); hz.addColorStop(1, 'rgba(255,190,150,0)');
+  g.fillStyle = hz; g.fillRect(0, HOR, W, 170);
+}
 function drawVolo() {
   // sky and sea, the Etna growing on the horizon
   const e = clamp(SP.dist / SP.len, 0, 1);
@@ -456,12 +477,14 @@ function drawVolo() {
     const src = IMG.cielo || IMG.etna || IMG.stretto;
     if (src) { const sh = src.height * (IMG.cielo ? 1 : 0.68), z = 0.8 + e * 0.5, w = W * z, h = sh * w / src.width; g.drawImage(src, 0, 0, src.width, sh, (W - w) / 2, HOR - h, w, h); }
     const hz = g.createLinearGradient(0, HOR - 90, 0, HOR); hz.addColorStop(0, 'rgba(255,200,150,0)'); hz.addColorStop(1, 'rgba(255,200,150,.55)'); g.fillStyle = hz; g.fillRect(0, HOR - 90, W, 90);
+    if (IMG.mare_volo) drawSeaTex(); else {
     const sg = g.createLinearGradient(0, HOR, 0, H); sg.addColorStop(0, '#8ab8d0'); sg.addColorStop(0.25, '#3a7aa8'); sg.addColorStop(1, '#123a60'); g.fillStyle = sg; g.fillRect(0, HOR, W, H - HOR);
     // wave crests rushing at you
     g.fillStyle = 'rgba(255,255,255,.5)';
     for (let i = 0; i < 26; i++) {
       const z = FAR - ((SP.t * 9 + i * (FAR / 26) * 1.0) % FAR); if (z < 0.5) continue;
       for (let j = -5; j <= 5; j++) { const P = proj(j * 0.9 + ((i * 7) % 5) * 0.17, 1.15, z); g.beginPath(); g.ellipse(P.x, P.y, 60 * P.s, 5 * P.s + 0.5, 0, 0, Math.PI); g.fill(); }
+    }
     }
   }
   // far to near
@@ -517,7 +540,7 @@ nextMission = function () {
   _nextMission3();
 };
 (function () {
-  for (const k of ['mare', 'cielo', 'mole']) loadImages([[k, `assets/bg/${k}.jpg`]]).catch(() => {});
+  for (const k of ['mare', 'cielo', 'mole', 'mare_volo']) loadImages([[k, `assets/bg/${k}.jpg`]]).catch(() => {});
   if (window.ATLAS.sp && Object.keys(window.ATLAS.sp).length) loadImages([['sp', 'assets/sprites/sp.png']]).catch(() => {});
 })();
 Object.defineProperty(window.Stivale, 'SP', { get: () => SP });

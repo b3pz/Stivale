@@ -51,3 +51,15 @@ if frames:
 else:
     meta = {}
 open(out_js, 'w').write('// generato da tools/build_sp.py\nwindow.ATLAS = window.ATLAS || {}; window.ATLAS.sp = ' + json.dumps(meta, separators=(',', ':')) + ';\n')
+
+# the sea under the plane: a texture seen from above, made to repeat both ways -> assets/bg/mare_volo.jpg
+src = os.path.join(ROOT, 'assets', 'source', 'mare_volo.png')
+if os.path.exists(src):
+    A = np.asarray(Image.open(src).convert('RGB').resize((768, 768), Image.LANCZOS)).astype(float)
+    for axis in (0, 1):
+        o = A.shape[axis] // 8
+        k = np.linspace(0, 1, o).reshape((-1, 1, 1) if axis == 0 else (1, -1, 1))
+        head = np.take(A, range(A.shape[axis] - o, A.shape[axis]), axis) * (1 - k) + np.take(A, range(o), axis) * k
+        A = np.concatenate([head, np.take(A, range(o, A.shape[axis] - o), axis)], axis)
+    Image.fromarray(A.astype('uint8')).save(os.path.join(ROOT, 'assets', 'bg', 'mare_volo.jpg'), quality=86)
+    print('mare_volo', A.shape)
