@@ -450,11 +450,10 @@ function spVoloBossDown() { const B = SP.boss; B.dead = true; const P = proj(B.x
 function drawVolo() {
   // sky and sea, the Etna growing on the horizon
   const e = clamp(SP.dist / SP.len, 0, 1);
-  if (IMG.cielo) { const z = 1 + e * 0.25, w = W * z, h = IMG.cielo.height * w / IMG.cielo.width; g.drawImage(IMG.cielo, (W - w) / 2, HOR - h * 0.62, w, h); }
-  else {
+  {
     const gr = g.createLinearGradient(0, 0, 0, HOR); gr.addColorStop(0, '#6a2a2a'); gr.addColorStop(1, '#f2a060'); g.fillStyle = gr; g.fillRect(0, 0, W, HOR);
-    const src = IMG.etna || IMG.stretto;
-    if (src) { const sh = src.height * 0.68, z = 0.8 + e * 0.5, w = W * z, h = sh * w / src.width; g.drawImage(src, 0, 0, src.width, sh, (W - w) / 2, HOR - h, w, h); }
+    const src = IMG.cielo || IMG.etna || IMG.stretto;
+    if (src) { const sh = src.height * (IMG.cielo ? 1 : 0.68), z = 0.8 + e * 0.5, w = W * z, h = sh * w / src.width; g.drawImage(src, 0, 0, src.width, sh, (W - w) / 2, HOR - h, w, h); }
     const hz = g.createLinearGradient(0, HOR - 90, 0, HOR); hz.addColorStop(0, 'rgba(255,200,150,0)'); hz.addColorStop(1, 'rgba(255,200,150,.55)'); g.fillStyle = hz; g.fillRect(0, HOR - 90, W, 90);
     const sg = g.createLinearGradient(0, HOR, 0, H); sg.addColorStop(0, '#8ab8d0'); sg.addColorStop(0.25, '#3a7aa8'); sg.addColorStop(1, '#123a60'); g.fillStyle = sg; g.fillRect(0, HOR, W, H - HOR);
     // wave crests rushing at you
