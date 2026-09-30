@@ -201,7 +201,7 @@ function stepSalita(dt) {
   }
   // the Catena throws gears up at you
   SP.gt = (SP.gt ?? 4) - dt;
-  if (SP.gt <= 0 && !SP.won && SP.t > 4) { SP.gt = rand(2.5, 4); const P = tgt({ x: W / 2, y: SP.gy }); if (P) SP.fshots.push({ k: 'gear', x: P.x + rand(-120, 120), y: SP.gy - 60, vx: rand(-60, 60), vy: -900, g: 900, life: 3, spin: 0, shootable: true }); }
+  if (SP.gt <= 0 && !SP.won && SP.t > 4) { SP.gt = rand(2.5, 4); const P = tgt({ x: W / 2, y: SP.gy }); if (P) SP.throwT = 0.55; if (P) SP.fshots.push({ k: 'gear', x: P.x + rand(-120, 120), y: SP.gy - 60, vx: rand(-60, 60), vy: -900, g: 900, life: 3, spin: 0, shootable: true }); }
   stepSPShots(dt, (s) => s.y < SP.cy - 100 || s.y > SP.cy + H + 100);
   spItems(dt, 0, (it) => it.y);
   SP.foes = SP.foes.filter((e) => !e.dead && e.y < SP.cy + H + 200);
@@ -234,6 +234,15 @@ function drawSalita() {
     g.fillStyle = 'rgba(0,0,0,.35)'; for (let yy = ((-cy) % 40 + 40) % 40 - 40; yy < H; yy += 40) { g.fillRect(x0, yy, 60, 3); g.fillRect(x0 + ((yy / 40) % 2 ? 30 : 0), yy, 3, 40); }
   }
   g.save(); g.translate(0, -cy);
+  // the Catena climbs behind the platforms
+  const P0 = SP.pl.find((q) => !q.dead);
+  SP.gx = SP.gx ?? W / 2; if (P0) SP.gx += clamp(P0.x - SP.gx, -90, 90) * 0.016;
+  SP.throwT = Math.max(0, (SP.throwT || 0) - 1 / 60);
+  if (SPF('cg_0')) {   // the giant Catena, climbing after you: grabs one hand after the other, throws gears, gets angry when you pull ahead
+    const far = (Math.min(...SP.pl.filter((q) => !q.dead).map((q) => q.y).concat([0])) < SP.gy - 520);
+    const f = SP.throwT > 0 ? 2 : far && Math.floor(SP.t / 1.2) % 3 === 0 ? 3 : Math.floor(SP.t / 0.5) % 2;
+    spx(`cg_${f}`, SP.gx, SP.gy - 60 + Math.sin(SP.t * 6.3) * 8, 640);
+  } else if (frameOf('capi', 'catena_3')) spr('capi', `catena_${SP.t % 1.2 < 0.6 ? 4 : 3}`, SP.gx, SP.gy + 500, { scale: 2.0, face: -1 }); else { g.fillStyle = '#6a5040'; g.fillRect(0, SP.gy, W, 900); }
   for (const [py, px, pw] of SP.plats) { if (py < cy - 60 || py > cy + H + 60) continue; if (py === 0) { g.fillStyle = '#3a2a20'; g.fillRect(0, 0, W, 200); } else if (IMG.piatt && window.ATLAS.piatt && ATLAS.piatt.torino_lunga) drawPiatt('torino', px, pw, py, true); else drawPlatform(px, pw, py, 'ferro', 'x'); }
   if (-TOP > cy - 80) { ptitle('LA CIMA!', W / 2, -TOP - 80, 30, '#ffffff', '#e8a020'); }
   spDrawItems();
@@ -241,11 +250,8 @@ function drawSalita() {
   for (const q of SP.pl) if (!q.dead) spHero(q, q.x, q.y, spFrame(q));
   spDrawShots(SP.shots); for (const f of SP.fshots) drawFoeShot(f);
   // the Catena, huge, climbing after you
-  const P = SP.pl.find((q) => !q.dead);
-  SP.gx = SP.gx ?? W / 2; if (P) SP.gx += clamp(P.x - SP.gx, -90, 90) * 0.016;
   const dg = g.createLinearGradient(0, SP.gy - 40, 0, SP.gy + 220); dg.addColorStop(0, 'rgba(255,90,40,0)'); dg.addColorStop(1, 'rgba(255,70,20,.45)');
   g.fillStyle = dg; g.fillRect(0, SP.gy - 40, W, 900);
-  if (frameOf('capi', 'catena_3')) spr('capi', `catena_${SP.t % 1.2 < 0.6 ? 4 : 3}`, SP.gx, SP.gy + 500, { scale: 2.0, face: -1 }); else { g.fillStyle = '#6a5040'; g.fillRect(0, SP.gy, W, 900); }
   g.restore();
   spFx(0, cy);
   const h = clamp(Math.round(-Math.min(...SP.pl.filter((q) => !q.dead).map((q) => q.y).concat([0])) / TOP * 100), 0, 100);

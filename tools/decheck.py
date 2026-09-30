@@ -20,6 +20,7 @@ def decheck(src, dst, vmin=150, smax=22, loose=False):
         m = lab[sl] == i
         if m.sum() < (60 if loose else 250): continue
         v = val[sl][m]
+        if m.sum() > 150 and v.mean() > 244: bg[sl] |= m; continue   # a flat white hole (inside a gear, a ring)
         if loose and v.std() > 12 and v.mean() > 215: bg[sl] |= m
         elif v.std() > 9 and (v > 235).mean() > 0.2 and (v < 225).mean() > 0.2: bg[sl] |= m
     # grow one pixel into the soft grey fringe

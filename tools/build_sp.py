@@ -15,7 +15,7 @@ from segment import ROOT
 # volo.png came out with the four planes in a 2x2 block on top: cells given as rectangles (fractions x0, y0, x1, y1)
 RECTS = {'vo': [(0, 0, .5, .22), (.5, 0, 1, .22), (0, .22, .5, .44), (.5, .22, 1, .44)] +
                [(i / 4, .44, (i + 1) / 4, .70) for i in range(4)] + [(i / 4, .70, (i + 1) / 4, 1) for i in range(4)]}
-SHEETS = [('volo', 'vo', 3, 4, 0.6), ('mare', 'pe', 2, 4, 0.4), ('boss_mare', 'sm', 2, 4, 0.8)]
+SHEETS = [('catena_gigante', 'cg', 2, 2, 2.8), ('volo', 'vo', 3, 4, 0.6), ('mare', 'pe', 2, 4, 0.4), ('boss_mare', 'sm', 2, 4, 0.8)]
 frames = []
 for fn, key, rows, cols, k in SHEETS:
     path = os.path.join(ROOT, 'assets', 'source', fn + '.png')
