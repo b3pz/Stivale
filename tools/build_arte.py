@@ -59,5 +59,12 @@ import glob
 for fn in sorted(glob.glob(os.path.join(ROOT, 'assets', 'source', 'bg_*.png'))):
     city = os.path.basename(fn)[3:-4]
     bg = Image.open(fn).convert('RGB')
-    bg = bg.resize((round(bg.width * 720 / bg.height), 720), Image.LANCZOS)
+    if bg.height > bg.width:   # vertical (the Mole): full screen width, and made to repeat without a seam
+        bg = bg.resize((1280, round(bg.height * 1280 / bg.width)), Image.LANCZOS)
+        import numpy as np
+        A = np.asarray(bg).astype(float); o = A.shape[0] // 6
+        k = np.linspace(0, 1, o)[:, None, None]
+        top = A[-o:] * (1 - k) + A[:o] * k
+        bg = Image.fromarray(np.concatenate([top, A[o:-o]]).astype('uint8'))
+    else: bg = bg.resize((round(bg.width * 720 / bg.height), 720), Image.LANCZOS)
     bg.save(os.path.join(ROOT, 'assets', 'bg', city + '.jpg'), quality=88); print(city, bg.size)

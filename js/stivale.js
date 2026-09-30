@@ -85,7 +85,7 @@ const ROSTER = [
   { id: 'remo', name: 'REMO', color: '#e8483a', desc: 'LUPO DI ROMA · TUTTOFARE', run: 1, jump: 1, dmg: 1, bombs: 10, F: F_STD },
   { id: 'nina', name: 'NINA', color: '#ff6fa0', desc: 'GATTA · VELOCE, SALTA PIU IN ALTO', run: 1.18, jump: 1.1, dmg: 0.9, bombs: 10, F: F_STD },
   { id: 'bruno', name: 'BRUNO', color: '#d8a060', desc: 'CINGHIALE · FORTISSIMO, 15 GRANATE', run: 0.88, jump: 0.97, dmg: 1.4, bombs: 15, F: { i: [0, 1], r: [2, 3, 4, 5, 6, 7], j: 4, s: 8, u: 9, c: 10, b: 11, h: 12, d: 14, w: 15 } },
-  { id: 'alba', name: 'ALBA', color: '#8ad85a', desc: 'STAMBECCA · DOPPIO SALTO', run: 1.05, jump: 1, dmg: 1, bombs: 10, dbl: true, F: { i: [0, 1], r: [2, 3, 4, 5], j: 6, s: 7, u: 8, c: 9, b: 10, h: 11, d: 13, w: 15 } },
+  { id: 'alba', name: 'ALBA', color: '#8ad85a', desc: 'STAMBECCA · DOPPIO SALTO', run: 1.05, jump: 1, dmg: 1, bombs: 10, dbl: true, F: F_STD },
 ];
 
 /* ---------------- the 8 missions ---------------- */
@@ -1197,7 +1197,7 @@ function drawHUD() {
   else if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; const rib = fxBox('ui_5', W / 2 - 400, 206, 800, 170); ptitle(S.banner.a, W / 2, rib ? 290 : 300, rib ? 32 : 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, rib ? 406 : 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.21', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.22', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- save, difficulty, records ---------------- */

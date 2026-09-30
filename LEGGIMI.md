@@ -1,4 +1,4 @@
-# MAMMA MIA, I MARZIANI! — prova 0.21
+# MAMMA MIA, I MARZIANI! — prova 0.22
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.
@@ -39,7 +39,7 @@ Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`
 - **Tre livelli speciali**:
   - dopo Torino, **la Mole Antonelliana**: si sale in verticale di piattaforma in piattaforma mentre la Catena di Montaggio sale da sotto e lancia ingranaggi (se ti prende perdi un cuore);
   - dopo Genova, **sott'acqua nel Golfo**: si nuota in tutte le direzioni, salto = scatto, granata = siluro; mine, pesci di latta, dischi-sommergibile, prigionieri nelle gabbie e alla fine il Sottomarino degli Abissi;
-  - dopo lo Stretto, **in volo verso l'Etna**: la Vespa volante vista da dietro, schiva scogli e faraglioni, prendi gli anelli d'oro, abbatti i dischi e poi la Nave Madre.
+  - dopo lo Stretto, **in volo verso l'Etna**: l'aereo tricolore visto da dietro con l'eroe in cabina, schiva scogli e faraglioni, prendi gli anelli d'oro, abbatti i dischi e poi la Nave Madre.
 - **Boss più chiari**: prima di ogni attacco un fumetto dice cosa arriva e cosa fare (RAGGIO ALTO: ABBASSATI!); la barra dice FASE 1 / FASE 2 - ARRABBIATO.
   Durante lo scontro ogni tanto scende **un prigioniero col paracadute**: liberalo per un'arma nuova.
   Il Comandante non fa più l'onda a terra (il disegno colpiva in alto e ingannava).
@@ -79,6 +79,7 @@ Online: https://b3pz.github.io/Stivale/ (il repository si chiama ancora Stivale)
 ## Grafica
 Tutta disegnata: anche cibo, nemici delle città, veicoli, mini-boss, onomatopee, trofei e Remo in Vespa.
 
-Nei livelli speciali alcune cose sono ancora provvisorie (la Vespa volante, i pesci, il sottomarino degli abissi, i fondali di mare, cielo e Mole): quando arrivano i disegni vanno in `assets/source` e `assets/bg`, poi `python3 tools/build_sp.py`.
+I livelli speciali hanno i loro disegni (kit 3): fondali di mare, cielo e Mole, l'aereo visto da dietro con gli eroi di spalle, pesci, mine, gabbie, alghe e il Sottomarino degli Abissi; Alba è stata rifatta.
+Le tavole arrivate con la scacchiera disegnata al posto della trasparenza si puliscono con `python3 tools/decheck.py tavola.png assets/source/nome.png`, poi `tools/build_arte.py` (eroi e fondali) e `tools/build_sp.py` (livelli speciali).
 
 Il vecchio prototipo con i personaggi di Primal Sentinels è in `assalto/`.
