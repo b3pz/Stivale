@@ -159,12 +159,29 @@ function drawRecordScreen() {
 }
 
 /* ---------- options ---------- */
-function optRows() { return [['diff', 'DIFFICOLTA'], ['mus', 'MUSICA'], ['sfx', 'EFFETTI'], ['k0', 'TASTI GIOCATORE 1'], ['k1', 'TASTI GIOCATORE 2'], ['pad', 'TASTI JOYPAD'], ['reset', 'RIPRISTINA I TASTI'], ['back', 'INDIETRO']]; }
+/* full screen: the whole page, so the game stays centred with black bands; on phones it also tries to turn to landscape */
+const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function setFull(on) {
+  try {
+    const d = document.documentElement;
+    if (on && !isFull()) { const r = (d.requestFullscreen || d.webkitRequestFullscreen).call(d, { navigationUI: 'hide' }); if (r && r.then) r.then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }).catch(() => {}); }
+    if (!on && isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  } catch (e) {}
+}
+function toggleFull() { setFull(!isFull()); SAVE.full = !isFull(); saveGame(); }
+// double click (or double tap) on the game: full screen on/off
+document.getElementById('game').addEventListener('dblclick', () => toggleFull());
+// leaving with ESC is remembered too
+for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => { SAVE.full = isFull(); saveGame(); });
+// if it was on last time, the first key or click turns it back on (the browser wants a gesture first)
+(function () { const again = (e) => { if ((SAVE.full || (SAVE.full === undefined && e.pointerType === 'touch')) && !isFull()) setFull(true); removeEventListener('keydown', again); removeEventListener('pointerdown', again); }; addEventListener('keydown', again); addEventListener('pointerdown', again); })();
+function optRows() { return [['full', 'SCHERMO INTERO'], ['diff', 'DIFFICOLTA'], ['mus', 'MUSICA'], ['sfx', 'EFFETTI'], ['k0', 'TASTI GIOCATORE 1'], ['k1', 'TASTI GIOCATORE 2'], ['pad', 'TASTI JOYPAD'], ['reset', 'RIPRISTINA I TASTI'], ['back', 'INDIETRO']]; }
 function tickOpzioni() {
   const rows = optRows(), n = menuNav(menuS.opt, rows.length); menuS.opt = n.sel;
   const k = rows[menuS.opt][0];
   if (n.dx) {
     if (k === 'diff') { SAVE.diff = clamp(SAVE.diff + n.dx, 0, 2); saveGame(); Audio.sfx('select'); }
+    if (k === 'full') { toggleFull(); Audio.sfx('select'); }
     if (k === 'mus') { Audio.setVolumes(clamp(Math.round(Audio.musicVol * 10) + n.dx, 0, 10) / 10, Audio.sfxVol); }
     if (k === 'sfx') { Audio.setVolumes(Audio.musicVol, clamp(Math.round(Audio.sfxVol * 10) + n.dx, 0, 10) / 10); Audio.sfx('pickup'); }
   }
@@ -172,6 +189,7 @@ function tickOpzioni() {
     Audio.sfx('confirm');
     if (k === 'k0' || k === 'k1' || k === 'pad') { mode = 'tasti'; menuS.set = k === 'pad' ? 'pad' : +k[1]; menuS.row = 0; menuS.wait = false; }
     if (k === 'reset') { resetKeys(); menuS.flash = 1.5; }
+    if (k === 'full') toggleFull();
     if (k === 'back') mode = menuS.back;
   }
   if (n.back) mode = menuS.back;
@@ -180,11 +198,12 @@ function tickOpzioni() {
 function volBar(v, x, y) { for (let i = 0; i < 10; i++) { g.fillStyle = i < Math.round(v * 10) ? '#ffd35a' : 'rgba(255,255,255,.15)'; g.fillRect(x + i * 22, y - 18, 16, 22); } }
 function drawOpzioni() {
   if (menuS.back === 'pausa' && S) { draw(); g.fillStyle = 'rgba(4,6,14,.6)'; g.fillRect(0, 0, W, H); } else drawMenuBack();
-  drawBoard(240, 130, 800, 530, 'OPZIONI');
+  drawBoard(240, 110, 800, 570, 'OPZIONI');
   optRows().forEach(([k, label], i) => {
-    const y = 210 + i * 54, on = menuS.opt === i;
+    const y = 190 + i * 52, on = menuS.opt === i;
     if (on) { g.fillStyle = 'rgba(255,210,90,.14)'; g.fillRect(270, y - 34, 740, 48); }
     ptxt(label, 300, y, 13, on ? '#ffffff' : '#e0b870');
+    if (k === 'full') ptxt(`< ${isFull() ? 'SI' : 'NO'} >   (O DOPPIO CLIC)`, 980, y, 11, '#ffd35a', 'right');
     if (k === 'diff') ptxt(`< ${DK().name} >   ${DK().lives} VITE · ${DK().hp} CUORI`, 980, y, 11, '#ffd35a', 'right');
     if (k === 'mus') volBar(Audio.musicVol, 760, y);
     if (k === 'sfx') volBar(Audio.sfxVol, 760, y);
