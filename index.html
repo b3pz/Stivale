@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primal Sentinels · Assalto (prototipo)</title>
+<link rel="icon" href="assets/ui/icon-192.png">
+<style>
+  html, body { margin: 0; height: 100%; background: #04070f; overflow: hidden; }
+  main { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { width: min(100vw, calc(100vh * 16 / 9)); height: auto; image-rendering: pixelated; background: #000; }
+  #loading { position: fixed; color: #ffcf7a; font: 700 16px system-ui; }
+</style>
+<script>
+/* salvataggi e opzioni separati dagli altri due giochi */
+(function () { try { const ls = window.localStorage, P = 'ps-assalto:'; const store = { getItem: (k) => ls.getItem(P + k), setItem: (k, v) => ls.setItem(P + k, v), removeItem: (k) => ls.removeItem(P + k), key: (i) => ls.key(i), get length() { return ls.length; }, clear: () => {} }; Object.defineProperty(window, 'localStorage', { value: store, configurable: true }); } catch (e) {} })();
+</script>
+</head>
+<body>
+<main>
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div id="loading">CARICAMENTO…</div>
+</main>
+<script src="js/fonts.js"></script>
+<script src="js/atlas.js"></script>
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/music.js"></script>
+<script src="js/assalto.js"></script>
+</body>
+</html>
