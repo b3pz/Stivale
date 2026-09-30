@@ -17,6 +17,7 @@ from segment import ROOT
 SHEETS = [('teste', 'testa', 1, 3), ('remo_vespa', 'rv', 3, 4), ('cibo', 'cibo', 2, 4), ('nemici_citta', 'nc', 2, 4), ('veicoli', 've', 2, 4), ('miniboss', 'mb', 2, 4), ('onomatopee', 'ono', 2, 4), ('trofei', 'tro', 3, 4), ('oggetti', 'obj', 2, 4), ('colpi_eroi', 'he', 2, 4), ('colpi_nemici', 'en', 4, 4), ('effetti', 'ef', 2, 4), ('interfaccia', 'ui', 2, 4), ('ritratti', 'rit', 2, 4)]
 BOTTOM = {'obj', 'cibo', 'nc', 've', 'mb', 'rv', 'en_13', 'en_14', 'en_15', 'ef_4'}   # these stand on the ground: anchor at the bottom
 K = 0.5
+MASKS = {}
 frames = []
 for fn, key, rows, cols in SHEETS:
     if not os.path.exists(os.path.join(ROOT, 'assets', 'source', fn + '.png')): continue
@@ -37,11 +38,26 @@ for fn, key, rows, cols in SHEETS:
         for r in range(rows):
             for c in range(cols):
                 cy0, cy1, cx0, cx1 = int(r * ch), int((r + 1) * ch), int(c * cw), int((c + 1) * cw)
-                sub = a[cy0:cy1, cx0:cx1]; ys, xs = sub.any(1).nonzero()[0], sub.any(0).nonzero()[0]
-                if len(ys): boxes[(r, c)] = (cy0 + ys[0], cx0 + xs[0], cy0 + ys[-1] + 1, cx0 + xs[-1] + 1)
+                sub = a[cy0:cy1, cx0:cx1].copy()
+                lab2, n2 = ndimage.label(sub)
+                if not n2: continue
+                sizes = ndimage.sum(sub, lab2, range(1, n2 + 1)); big = int(np.argmax(sizes)) + 1
+                keep = lab2 == big
+                bys, bxs = np.nonzero(keep); bx0, bx1 = bxs.min(), bxs.max()
+                for i in range(1, n2 + 1):   # a neighbour's sliver touches the cell's side edges: drop it
+                    if i == big or sizes[i - 1] < 30: continue
+                    comp = lab2 == i; cys, cxs = np.nonzero(comp)
+                    edge = cxs.min() <= 1 or cxs.max() >= sub.shape[1] - 2 or cys.min() <= 1 or cys.max() >= sub.shape[0] - 2
+                    if not edge and cxs.max() >= bx0 - 20 and cxs.min() <= bx1 + 20: keep |= comp
+                MASKS[(key, r, c)] = keep
+                ys, xs = keep.any(1).nonzero()[0], keep.any(0).nonzero()[0]
+                boxes[(r, c)] = (cy0 + ys[0], cx0 + xs[0], cy0 + ys[-1] + 1, cx0 + xs[-1] + 1)
     for (r, c), (y0, x0, y1, x1) in sorted(boxes.items()):
         name = f'{key}_{r * cols + c}'
-        p = im.crop((x0, y0, x1, y1)).resize((max(1, round((x1 - x0) * k)), max(1, round((y1 - y0) * k))), Image.LANCZOS)
+        p = im.crop((x0, y0, x1, y1))
+        if (key, r, c) in MASKS:
+            cy0, cx0 = int(r * ch), int(c * cw); m = MASKS[(key, r, c)][y0 - cy0:y1 - cy0, x0 - cx0:x1 - cx0]
+            arr = np.array(p); arr[~m] = 0; p = Image.fromarray(arr).resize((max(1, round((x1 - x0) * k)), max(1, round((y1 - y0) * k))), Image.LANCZOS)
         bottom = key in BOTTOM or name in BOTTOM
         frames.append((name, p, p.width / 2, p.height if bottom else p.height / 2))
     print(fn, len(boxes))

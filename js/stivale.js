@@ -1196,7 +1196,7 @@ function drawHUD() {
   else if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; const rib = fxBox('ui_5', W / 2 - 400, 206, 800, 170); ptitle(S.banner.a, W / 2, rib ? 290 : 300, rib ? 32 : 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, rib ? 406 : 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.19', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.20', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- save, difficulty, records ---------------- */
@@ -1369,8 +1369,14 @@ function tickTitle() {
       if (c.pressed.start && sel.slots.every((q) => q.ready)) { S = null; startBrief(tsel.mi); return; }
     }
   }
+  if (mode === 'select') {   // the countdown: at zero everyone goes with what they have
+    sel.timer = (sel.timer ?? 20) - 1 / 60;
+    const t = Math.ceil(sel.timer); if (t !== sel.lastT && t <= 5 && t > 0) Audio.sfx('select'); sel.lastT = t;
+    if (sel.timer <= 0) for (const q of sel.slots) if (!q.ready) { q.ready = true; Audio.sfx('confirm'); }
+    for (const q of sel.slots) if (!q.ready) { q.dk = 0; q.boom = 0; }
+  }
   if (mode === 'select' && sel.slots.length && sel.slots.every((q) => q.ready) && !sel.go) sel.go = T;
-  if (mode === 'select' && sel.go && T - sel.go > 1.2) { S = null; startBrief(tsel.mi); }
+  if (mode === 'select' && sel.go && T - sel.go > 1.1) { S = null; startBrief(tsel.mi); }
   if (mode === 'select' && sel.go && !sel.slots.every((q) => q.ready)) sel.go = null;
 }
 function drawGameName(y, big) {
@@ -1387,6 +1393,7 @@ function drawTitle() {
     return;
   }
   // select
+  if (typeof drawSelectArcade === 'function') { drawSelectArcade(); return; }
   sel.slots.forEach((s, i) => {
     const x = i ? 900 : 380, h = ROSTER[s.hero];
     panel(x - 200, 300, 400, 390, h.color);

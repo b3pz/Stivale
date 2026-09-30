@@ -264,3 +264,75 @@ function drawMenuBack() {
   if (IMG.scena_arrivo) { g.drawImage(IMG.scena_arrivo, 0, 0, W, H); g.fillStyle = 'rgba(4,6,14,.7)'; g.fillRect(0, 0, W, H); } else drawCityBack('roma', null, 0.7);
 }
 const MENUS = { come: [tickCome, drawCome], record: [tickRecord, drawRecordScreen], opzioni: [tickOpzioni, drawOpzioni], tasti: [tickTasti, drawTasti], pausa: [tickPausa, drawPausa] };
+
+/* ---------- hero select, arcade style: four big portraits, P1/P2 tags, a countdown,
+   and when you confirm the shutter comes down showing your little in-game hero ---------- */
+const SELW = 262, SELH = 360, SELX = (W - SELW * 4 - 18 * 3) / 2, SELY = 150;
+function selCol(i) { return SELX + i * (SELW + 18); }
+function drawRivets(x, y, w, h) { g.fillStyle = '#c8a060'; for (const [a, b] of [[x + 10, y + 10], [x + w - 10, y + 10], [x + 10, y + h - 10], [x + w - 10, y + h - 10]]) { g.beginPath(); g.arc(a, b, 5, 0, 7); g.fill(); g.strokeStyle = '#3a2410'; g.lineWidth = 2; g.stroke(); } }
+function drawPlate(x, y, w, h, fill = '#5a3a24') {
+  const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, fill); gr.addColorStop(1, '#2a160c');
+  g.fillStyle = gr; g.beginPath(); g.roundRect(x, y, w, h, 10); g.fill(); g.lineWidth = 4; g.strokeStyle = '#1a0a04'; g.stroke();
+  g.lineWidth = 2; g.strokeStyle = '#c8904a'; g.beginPath(); g.roundRect(x + 5, y + 5, w - 10, h - 10, 7); g.stroke();
+}
+function desaturate(x, y, w, h, dark = 0.55) {
+  g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+  g.globalCompositeOperation = 'saturation'; g.fillStyle = '#808080'; g.fillRect(x, y, w, h);
+  g.globalCompositeOperation = 'source-over'; g.fillStyle = `rgba(10,6,4,${dark})`; g.fillRect(x, y, w, h); g.restore();
+}
+function drawShutter(x, y, w, h, k, s) {   // k 0..1: how far down the iron shutter has come
+  const sh = h * k; if (sh <= 0) return;
+  g.save(); g.beginPath(); g.rect(x, y, w, sh); g.clip();
+  const gr = g.createLinearGradient(x, 0, x + w, 0); gr.addColorStop(0, '#3a2a20'); gr.addColorStop(0.5, '#6a4a34'); gr.addColorStop(1, '#3a2a20');
+  g.fillStyle = gr; g.fillRect(x, y, w, h);
+  g.fillStyle = 'rgba(0,0,0,.35)'; for (let yy = y + 18; yy < y + h; yy += 26) g.fillRect(x, yy + sh - h, w, 4);
+  // the little in-game hero, framed, like a dog tag
+  const R = ROSTER[s.hero], by = y + sh - h;
+  ptitle('M·M', x + w / 2, by + 90, 52, 'rgba(255,255,255,.12)', 'rgba(0,0,0,.2)');
+  drawPlate(x + w / 2 - 70, by + 120, 140, 140, '#8ab0c8');
+  spr('arte', `${R.id}_${R.F.w}`, x + w / 2, by + 245, { scale: 0.72 });
+  // hazard stripes at the bottom edge
+  g.save(); g.beginPath(); g.rect(x, by + h - 34, w, 30); g.clip();
+  for (let k2 = -40; k2 < w + 40; k2 += 28) { g.fillStyle = '#e8c030'; g.beginPath(); g.moveTo(x + k2, by + h - 4); g.lineTo(x + k2 + 14, by + h - 34); g.lineTo(x + k2 + 28, by + h - 34); g.lineTo(x + k2 + 14, by + h - 4); g.fill(); }
+  g.restore();
+  g.restore();
+  g.fillStyle = '#1a0a04'; g.fillRect(x, y + sh - 6, w, 6);
+}
+function drawSelectArcade() {
+  // the room: dark wood with brass rivets
+  if (IMG.scena_arrivo) { g.drawImage(IMG.scena_arrivo, 0, 0, W, H); g.fillStyle = 'rgba(20,10,6,.82)'; g.fillRect(0, 0, W, H); } else { g.fillStyle = '#20120a'; g.fillRect(0, 0, W, H); }
+  drawPlate(30, 18, W - 60, H - 36, '#4a2c1a'); drawRivets(30, 18, W - 60, H - 36);
+  ptitle('SCEGLI L\'EROE', W / 2, 78, 44, '#f6e6c8', '#8a4a20');
+  sel.timer = sel.timer ?? 20;
+  const tleft = Math.max(0, Math.ceil(sel.timer));
+  ptitle(String(tleft), W / 2, 596 + 70, 34, tleft <= 5 && Math.floor(T * 4) % 2 ? '#ff5b4f' : '#ffffff', '#3a2410');
+  ROSTER.forEach((R, i) => {
+    const x = selCol(i), y = SELY, open = heroOpen(i, tsel.mi);
+    const who = sel.slots.map((s, k) => [s, k]).filter(([s]) => s.hero === i);
+    // P1 / P2 tags
+    drawPlate(x + SELW / 2 - 60, y - 52, 120, 44, '#3a2010');
+    who.forEach(([s, k], j) => ptitle(`P${k + 1}`, x + SELW / 2 + (who.length > 1 ? (j ? 28 : -28) : 0), y - 18, 26, '#ffd35a', k ? '#4a8ad8' : '#e8483a'));
+    // the portrait window
+    g.save(); g.beginPath(); g.rect(x, y, SELW, SELH); g.clip();
+    g.fillStyle = '#2a1a12'; g.fillRect(x, y, SELW, SELH);
+    const f = FXF(`rit_${i}`);
+    if (f) { const sc = Math.max(SELW / f[2], SELH / f[3]) * 1.08; spr('fx', `rit_${i}`, x + SELW / 2 + (who.length ? Math.sin(T * 3) * 2 : 0), y + SELH / 2 + 20, { scale: sc }); }
+    else spr('arte', `${R.id}_${R.F.i[0]}`, x + SELW / 2, y + SELH - 30, { scale: 1.6 });
+    g.restore();
+    if (!who.length || !open) desaturate(x, y, SELW, SELH, open ? 0.35 : 0.7);
+    if (!open) ptitle('?', x + SELW / 2, y + SELH / 2 + 20, 90, '#ffffff', '#3a2410');
+    // shutter for the players who confirmed
+    for (const [s] of who) if (s.ready) { s.dk = Math.min(1, (s.dk || 0) + 1 / 60 / 0.28); drawShutter(x, y, SELW, SELH, s.dk * s.dk, s); if (s.dk === 1 && !s.boom) { s.boom = 1; Audio.sfx('stomp'); } }
+    // frame
+    g.lineWidth = 8; g.strokeStyle = who.length ? (who[0][1] ? '#4a8ad8' : '#e8483a') : '#1a0a04'; g.strokeRect(x, y, SELW, SELH);
+    g.lineWidth = 3; g.strokeStyle = '#c8904a'; g.strokeRect(x - 6, y - 6, SELW + 12, SELH + 12);
+    // name plate
+    drawPlate(x + 30, y + SELH + 14, SELW - 60, 50, '#6a4a30');
+    ptitle(open ? R.name : '???', x + SELW / 2, y + SELH + 50, 20, '#f6e6c8', '#3a2410');
+  });
+  // what the selected hero does
+  sel.slots.forEach((s, k) => { const R = ROSTER[s.hero]; ptxt(`${k + 1}P ${R.name}: ${R.desc}`, k ? W - 60 : 60, 628 + 0, 9, k ? '#9fc8ff' : '#ffb0a0', k ? 'right' : 'left'); });
+  const locked = ROSTER.filter((_, i) => !heroOpen(i, tsel.mi)).map((R) => R.name);
+  ptxt(sel.slots.length < 2 ? '2P: PREMI FUOCO PER ENTRARE' : 'SINISTRA/DESTRA: SCEGLI · FUOCO: CONFERMA', W / 2, 700, 9, '#e0c8a0', 'center');
+  if (locked.length) ptxt(`${locked.join(' E ')}: LI INCONTRI PIU AVANTI`, W / 2, 606, 9, '#ffd35a', 'center');
+}

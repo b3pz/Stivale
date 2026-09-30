@@ -1,4 +1,4 @@
-# MAMMA MIA, I MARZIANI! — prova 0.19
+# MAMMA MIA, I MARZIANI! — prova 0.20
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.
@@ -13,6 +13,7 @@ Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`
 - **Bruno si unisce a Firenze, Alba sulle Dolomiti**: nel briefing sinistra/destra cambia eroe.
 - **Salvataggio**: il gioco ricorda fin dove sei arrivato; dal titolo puoi ripartire da una missione già raggiunta.
 - **Difficoltà**: facile (5 vite da 3 cuori) · normale (4 vite da 2 cuori) · arcade (3 vite, un colpo e sei fuori).
+- **Scelta dell'eroe** in stile sala giochi: quattro ritratti, P1/P2, 20 secondi di tempo, e confermando scende la saracinesca con il tuo eroe.
 - **Menu**: gioca, come si gioca, record, opzioni (difficoltà, volume musica ed effetti, tasti di tastiera e joypad). In partita INVIO/START, ESC o P: pausa.
 - **Record**: la classifica dei migliori 8 punteggi, con le iniziali.
 - **Musica anni '30** fatta dal gioco: swing, tuba, clarinetto, fisarmonica, tarantella, un tema per città. Suoni da cartone (boing, fischio, clacson).

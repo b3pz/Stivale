@@ -137,7 +137,7 @@
       const now = this.ctx.currentTime;
       if (this.next < now) this.next = now + 0.05;
       this.out = this.musicBus;
-      while (this.next < now + 0.15) {
+      while (this.next < now + 0.35) {
         const st = this.step % C.len, bar = Math.floor(st / 16), s = st % 16;
         const when = this.next - now + (S.swing && s % 4 === 2 ? sd * 0.66 : 0);   // swing: the second eighth arrives late
         const ch = C.chords[bar % C.chords.length];
@@ -198,4 +198,39 @@
     team() { [523, 659, 784, 1046, 784, 1046].forEach((f, i) => this.tone(f, 0.2, 'sawtooth', 0.025, 1, i * 0.1)); },
   };
   Audio.sfx = function (name) { if (this.muted || !this.ctx) return; const c = CARTOON[name]; if (c) c.call(this); else baseSfx(name); };
+})();
+
+/* ---------- performance: the music must never stutter ----------
+   - noise bursts reuse pre-made buffers (before, every drum hit built a new one sample by sample)
+   - the scheduler looks further ahead and also runs on its own timer, so a slow frame doesn't starve it */
+(function () {
+  const cache = new Map();
+  Audio.noise = function (d = 0.15, vol = 0.05, hp = 800, when = 0) {
+    if (this.muted || !this.ctx) return;
+    const key = Math.max(1, Math.round(d * 50));
+    let buf = cache.get(key);
+    if (!buf) {
+      const len = Math.floor(this.ctx.sampleRate * key / 50);
+      buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      cache.set(key, buf);
+    }
+    const t = this.ctx.currentTime + when;
+    const s = this.ctx.createBufferSource(); s.buffer = buf;
+    const f = this.ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
+    const a = this.ctx.createGain(); a.gain.value = vol;
+    s.connect(f); f.connect(a); a.connect(this.out || this.master);
+    s.start(t);
+  };
+  const up = Audio.update;
+  let busy = false;
+  Audio.update = function () {
+    if (busy || !this.ctx) return;
+    busy = true;
+    // schedule 0.35 s ahead: the orchestra keeps playing through hiccups
+    const saved = this.ctx.currentTime;
+    try { up.call(this, saved); } finally { busy = false; }
+  };
+  setInterval(() => { try { Audio.update(); } catch (e) {} }, 40);
 })();
