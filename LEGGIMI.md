@@ -1,4 +1,4 @@
-# STIVALE (titolo provvisorio) — prova 0.8
+# STIVALE (titolo provvisorio) — prova 0.9
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.

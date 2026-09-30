@@ -694,15 +694,24 @@ function tintCity(M) {
   if (M.snow) { g.globalCompositeOperation = 'screen'; g.fillStyle = 'rgba(120,130,150,.5)'; g.fillRect(0, 0, W, H); }
   g.restore();
 }
+/* where the painted street starts in each background (y on the 720 px image) */
+const FLOOR_Y = { roma: 526, venezia: 527, firenze: 526, torino: 528, genova: 535, dolomiti: 545, stretto: 539, etna: 525 };
+function tileLayer(img, sy, sh, px) {
+  const s = H / img.height, w = img.width * s, i0 = Math.floor(px / w);
+  for (let i = i0; i * w - px < W; i++) {
+    const x = i * w - px;
+    if (i % 2) { g.save(); g.translate(x + w, 0); g.scale(-1, 1); g.drawImage(img, 0, sy, img.width, sh, 0, sy * s, w, sh * s); g.restore(); }
+    else g.drawImage(img, 0, sy, img.width, sh, x, sy * s, w, sh * s);
+  }
+}
 function drawBack() {
   const M = MISSIONS[MI], own = IMG[M.bg], img = own || IMG.roma;
   if (img) {
-    // copies side by side, every other one mirrored: the edges always match
-    const s = H / img.height, w = img.width * s, px = S.cam * 0.35, i0 = Math.floor(px / w);
-    for (let i = i0; i * w - px < W; i++) {
-      const x = i * w - px;
-      if (i % 2) { g.save(); g.translate(x + w, 0); g.scale(-1, 1); g.drawImage(img, 0, 0, w, H); g.restore(); } else g.drawImage(img, x, 0, w, H);
-    }
+    // two layers: the far city scrolls slowly (parallax), the painted street moves WITH the camera,
+    // so feet and platforms never slide on it. Copies side by side, every other one mirrored.
+    const cut = FLOOR_Y[own ? M.bg : 'roma'] || 526;
+    tileLayer(img, 0, cut, S.cam * 0.35);
+    tileLayer(img, cut, img.height - cut, S.cam);
   }
   if (!own && M.tint) tintCity(M);   // no painting yet for this city: Rome, recoloured
   g.fillStyle = 'rgba(8,6,14,.18)'; g.fillRect(0, 0, W, H);
@@ -963,7 +972,7 @@ function drawHUD() {
   if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; ptitle(S.banner.a, W / 2, 300, 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.8', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.9', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- the professor's briefing ---------------- */
