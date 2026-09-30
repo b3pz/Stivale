@@ -16,7 +16,7 @@ const CITY = () => MISSIONS[MI].bg;
 
 /* ---------------- iris ---------------- */
 let IRIS = null;
-function irisTo(then, x = W / 2, y = H / 2) { if (IRIS) return; IRIS = { ph: 'close', t: 0, x, y, then }; Audio.sfx('wind'); }
+function irisTo(then, x = W / 2, y = H / 2) { if (IRIS && IRIS.ph === 'hold') { then && then(); return; } if (IRIS) return; IRIS = { ph: 'close', t: 0, x, y, then }; Audio.sfx('wind'); }
 function irisOpen(x = W / 2, y = H / 2) { IRIS = { ph: 'open', t: 0, x, y }; }
 function heroScreen() { const p = S && alive()[0]; return p ? [clamp(p.x - S.cam, 60, W - 60), clamp(p.y - 90, 60, H - 60)] : [W / 2, H / 2]; }
 function drawIris(dt) {
@@ -622,6 +622,7 @@ step = function (dt) {
   const w = S.win; _step(dt);
   if (!S) return;
   if (mode === 'play') chaosStep(dt);
+  if (EX.stepParaPris) EX.stepParaPris(dt);
   if (!w && S.win) onWin();
   for (const f of S.fx) if (f.k === 'casco') { f.vy += 1500 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.vx * dt * 0.05; if (f.y > GROUND - 17) { f.y = GROUND - 17; f.vy *= -0.4; f.vx *= 0.7; } }
   S.fx = S.fx.filter((f) => f.k !== 'casco' || f.t < 2.2);
@@ -638,7 +639,7 @@ nextMission = function () {
       if (!SAVE.rushBest || RMODE.t < SAVE.rushBest) SAVE.rushBest = RMODE.t; saveGame(); endRunModes(); finishRun('end'); return;
     }
     if (MI === 7) award(10);
-    if ([1, 3, 5].includes(MI) && S) { startBonus(() => _nextMission()); return; }
+    if ([1, 5].includes(MI) && S) { startBonus(() => _nextMission()); return; }
     _nextMission();
   };
   irisTo(go, ...heroScreen());
@@ -668,6 +669,8 @@ drawHUD = function () {
   S.players.forEach((p, i) => { if (p.perk && !p.out) ptxt(PERKS[p.perk][0] + (p.perk === 'roma' ? ` ${p.shield || 0}` : ''), i ? W - 160 : 160, 120, 8, '#ffd35a', 'center'); });
   if (S.water && S.water.h > 0.6) S.players.forEach((p) => { if (p.air < 1.55 && !p.dead) { const x = p.x - S.cam; g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(x - 30, p.y - 200, 60, 8); g.fillStyle = '#7ec8ff'; g.fillRect(x - 30, p.y - 200, 60 * p.air / 1.6, 8); } });
   if (S.win) drawGrade();
+  if (EX.drawBossWarn) EX.drawBossWarn();
+  if (S.boss && !S.boss.dead && S.boss.st !== 'intro') ptxt(S.boss.angry ? 'FASE 2 - ARRABBIATO!' : 'FASE 1', W / 2, H - 98, 9, S.boss.angry ? '#ff8a7a' : '#ffe0a0', 'center');
 };
 const _draw = draw;
 draw = function () {

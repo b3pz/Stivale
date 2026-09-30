@@ -77,3 +77,45 @@ def cut_grid(name, rows=2, cols=4, thr=110, merge=30, span=None, wmin=None, wmax
             out[(r, c)] = dict(row=r, col=c, img=Image.fromarray(crop), ax=float(xx[mid].mean()), ay=float(foot + 1),
                                bh=float(foot - top))
     return out
+
+
+def cut_whole(name, rows, cols, thr=110, merge=12, **kw):
+    """Like cut_grid, but a figure is never sliced: every connected drawing whose centre falls in a cell
+    belongs to that cell whole (weapons and scarves that stick into the neighbour cell stay attached).
+    Falls back to cut_grid's crop only when a figure is glued to its neighbour."""
+    base = cut_grid(name, rows, cols, thr=thr, **kw)
+    rgba = np.array(Image.open(SRC + name).convert('RGBA'))
+    H, W = rgba.shape[:2]
+    mask = rgba[..., 3] > thr
+    lab, n = ndi.label(ndi.binary_dilation(mask, iterations=2), structure=np.ones((3, 3)))
+    objs = ndi.find_objects(lab)
+    ch, cw = H / rows, W / cols
+    cells = {}
+    for i, sl in enumerate(objs):
+        comp = (lab[sl] == i + 1) & mask[sl]
+        area = comp.sum()
+        if area < 150: continue
+        ys, xs = np.nonzero(comp)
+        cy, cx = sl[0].start + ys.mean(), sl[1].start + xs.mean()
+        cell = (min(rows - 1, int(cy // ch)), min(cols - 1, int(cx // cw)))
+        cells.setdefault(cell, []).append((area, i + 1, sl))
+    out = {}
+    for (r, c), f in base.items():
+        L = sorted(cells.get((r, c), []), reverse=True)
+        if not L: out[(r, c)] = f; continue
+        body_area, bid, bsl = L[0]
+        if (bsl[1].stop - bsl[1].start) > cw * 1.45 or (bsl[0].stop - bsl[0].start) > ch * 1.3:
+            out[(r, c)] = f; continue   # glued to a neighbour: keep the old crop
+        keep = np.zeros_like(mask)
+        for area, lid, sl in L:
+            if lid == bid or area > 60: keep[sl] |= (lab[sl] == lid) & mask[sl]
+        ys, xs = np.nonzero(keep)
+        y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+        crop = rgba[y0:y1, x0:x1].copy(); k = keep[y0:y1, x0:x1]
+        crop[~k] = 0; crop[k, 3] = 255
+        bm = ((lab == bid) & mask)[y0:y1, x0:x1]
+        yy, xx = np.nonzero(bm)
+        foot, top = yy.max(), yy.min()
+        mid = (yy > top + (foot - top) * 0.25) & (yy < top + (foot - top) * 0.6)
+        out[(r, c)] = dict(row=r, col=c, img=Image.fromarray(crop), ax=float(xx[mid].mean()), ay=float(foot + 1), bh=float(foot - top))
+    return out

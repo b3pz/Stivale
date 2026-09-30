@@ -21,7 +21,7 @@ MASKS = {}
 frames = []
 for fn, key, rows, cols in SHEETS:
     if not os.path.exists(os.path.join(ROOT, 'assets', 'source', fn + '.png')): continue
-    k = 0.8 if key == 'rit' else K
+    k = {'rit': 0.6, 'testa': 0.14, 'tro': 0.25, 'cibo': 0.28, 'ono': 0.35, 'nc': 0.4, 've': 0.45, 'mb': 0.5, 'rv': 0.42}.get(key, K)
     im = Image.open(os.path.join(ROOT, 'assets', 'source', fn + '.png')).convert('RGBA')
     a = np.array(im)[..., 3] > 20
     lab, n = ndimage.label(ndimage.binary_dilation(a, iterations=3))
@@ -57,7 +57,8 @@ for fn, key, rows, cols in SHEETS:
         p = im.crop((x0, y0, x1, y1))
         if (key, r, c) in MASKS:
             cy0, cx0 = int(r * ch), int(c * cw); m = MASKS[(key, r, c)][y0 - cy0:y1 - cy0, x0 - cx0:x1 - cx0]
-            arr = np.array(p); arr[~m] = 0; p = Image.fromarray(arr).resize((max(1, round((x1 - x0) * k)), max(1, round((y1 - y0) * k))), Image.LANCZOS)
+            arr = np.array(p); arr[~m] = 0; p = Image.fromarray(arr)
+        p = p.resize((max(1, round((x1 - x0) * k)), max(1, round((y1 - y0) * k))), Image.LANCZOS)
         bottom = key in BOTTOM or name in BOTTOM
         frames.append((name, p, p.width / 2, p.height if bottom else p.height / 2))
     print(fn, len(boxes))

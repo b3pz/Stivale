@@ -849,9 +849,9 @@ const PSTYLE = { roma: 'marmo', firenze: 'marmo', stretto: 'marmo', venezia: 'le
 /* the painted platforms (tools/build_piatt.py): two poles down to the street, then the slab,
    whose ends keep their shape while the middle stretches to the width of the platform */
 const SLAB_SY = 0.85, POLE_S = 0.8;
-function drawPiatt(city, x, pw, py) {
+function drawPiatt(city, x, pw, py, noPole) {
   const A = window.ATLAS.piatt, img = IMG.piatt, slab = A[`${city}_${pw < 300 && A[`${city}_corta`] ? 'corta' : 'lunga'}`], pole = A[`${city}_palo`];
-  if (pole && GROUND - py > 4) {
+  if (pole && !noPole && GROUND - py > 4) {
     const [sx, sy, sw, sh] = pole, w = sw * POLE_S, need = GROUND - py;
     const pl = slab[6] ?? 0.08, pr = slab[7] ?? 0.92;   // under the slab's own end posts
     for (const cx of [x + Math.max(pl * slab[2] * SLAB_SY, w / 2), x + pw - Math.max((1 - pr) * slab[2] * SLAB_SY, w / 2)]) {
@@ -1069,6 +1069,7 @@ function draw() {
   for (const o of S.props) if (o.hp > 0) { const ox = o.x + (o.shake > 0 ? rand(-3, 3) : 0); if (!fxs(o.k === 'barrel' ? 'obj_7' : 'obj_6', ox, o.y, o.k === 'barrel' ? 76 : 96)) spr('items', o.k, ox, o.y, { scale: 1.6 }); }
   // prisoners: pris 0-3 legati · 4-7 liberi
   for (const q of S.pris) {
+    EX.drawParaPris(q);
     if (q.st === 'tied') {
       spr('arte', `pris_${q.k}`, q.x, q.y, { scale: 1.0, sy: 1 + Math.sin(T * 4 + q.id) * 0.03 });
       if (Math.floor(T * 2) % 2) ptxt('AIUTO!', q.x, q.y - 150, 9, '#ffffff', 'center');
@@ -1196,12 +1197,12 @@ function drawHUD() {
   else if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; const rib = fxBox('ui_5', W / 2 - 400, 206, 800, 170); ptitle(S.banner.a, W / 2, rib ? 290 : 300, rib ? 32 : 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, rib ? 406 : 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.20', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.21', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- save, difficulty, records ---------------- */
 const GAME_NAME = ['MAMMA MIA,', 'I MARZIANI!'];
-const DIFFIC = [{ name: 'FACILE', lives: 5, hp: 3, foe: 0.6, boss: 0.6 }, { name: 'NORMALE', lives: 4, hp: 2, foe: 0.8, boss: 0.8 }, { name: 'ARCADE', lives: 3, hp: 1, foe: 1.1, boss: 1.1 }];
+const DIFFIC = [{ name: 'FACILE', lives: 5, hp: 4, foe: 0.55, boss: 0.5 }, { name: 'NORMALE', lives: 4, hp: 2, foe: 0.8, boss: 0.8 }, { name: 'ARCADE', lives: 3, hp: 1, foe: 1.1, boss: 1.1 }];
 const SAVE = (() => { try { return Object.assign({ max: 0, diff: 0, record: [] }, JSON.parse(localStorage.getItem('salvataggio') || '{}')); } catch (e) { return { max: 0, diff: 1, record: [] }; } })();
 function saveGame() { try { localStorage.setItem('salvataggio', JSON.stringify(SAVE)); } catch (e) {} }
 const DK = () => DIFFIC[SAVE.diff] || DIFFIC[1];
