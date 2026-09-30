@@ -24,10 +24,36 @@ g = cut_grid('boss_gladiatore.png', 2, 4, merge=30, wmin=300, wmax=560)
 k = 330 / g[(0, 0)]['bh']
 for (r, c), f in sorted(g.items()):
     im, ax, ay = scaled(f, k); im = ImageOps.mirror(im); frames.append((f'glad_{r * 4 + c}', im, im.width - ax, ay))
+def sheet(name, rows, cols, key, h, flip=False, ref=(0, 0), **kw):
+    g = cut_grid(name, rows, cols, merge=kw.pop('merge', 25), **kw)
+    k = h / g[ref]['bh']
+    for (r, c), f in sorted(g.items()):
+        im, ax, ay = scaled(f, k)
+        if flip: im = ImageOps.mirror(im); ax = im.width - ax
+        frames.append((f'{key}_{r * cols + c}', im, ax, ay))
+sheet('nina.png', 4, 4, 'nina', 150, wmin=200, wmax=460)
+sheet('bruno.png', 4, 4, 'bruno', 155, wmin=200, wmax=460)
+sheet('alba.png', 4, 4, 'alba', 160, wmin=200, wmax=460)
+sheet('vespona.png', 1, 6, 'vesp', 170, wmin=200, wmax=480)
+sheet('gufo.png', 1, 4, 'gufo', 190, wmin=300, wmax=640)
+sheet('prigionieri.png', 2, 4, 'pris', 120, wmin=200, wmax=460)
+sheet('robottino.png', 1, 6, 'robo', 110, wmin=200, wmax=480)
+sheet('ufficiale.png', 2, 4, 'uff', 160, wmin=300, wmax=560)
+sheet('disco.png', 1, 5, 'disco', 120, wmin=250, wmax=560)
+sheet('legionario.png', 2, 4, 'leg', 185, flip=True, wmin=300, wmax=560)
 atlas, meta = pack(frames)
 atlas.convert('RGBA').save(os.path.join(ROOT, 'assets', 'sprites', 'arte.png'), optimize=True)
 open(os.path.join(ROOT, 'js', 'arte.js'), 'w').write('// generato da tools/build_arte.py\nwindow.ATLAS = window.ATLAS || {}; window.ATLAS.arte = ' + json.dumps(meta, separators=(',', ':')) + ';\n')
-print('arte', atlas.size, len(meta), {k: [round(v) for v in meta[k][2:4]] for k in ('remo_0', 'remo_8', 'remo_14', 'inv_0', 'inv_6')})
+print('arte', atlas.size, len(meta))
+# the bosses of the missions (all drawn facing left): atlas 'capi'
+frames = []
+for key, fn, h in [('piov', 'boss_piovra', 340), ('catena', 'boss_catena', 330), ('sotto', 'boss_sottomarino', 300), ('pupazzo', 'boss_pupazzo', 340), ('miraggio', 'boss_miraggio', 300), ('comand', 'boss_comandante', 350)]:
+    sheet(fn + '.png', 2, 4, key, h, flip=True, wmin=300, wmax=560)
+atlas, meta = pack(frames)
+atlas.convert('RGBA').quantize(colors=256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(os.path.join(ROOT, 'assets', 'sprites', 'capi.png'), optimize=True)
+open(os.path.join(ROOT, 'js', 'capi.js'), 'w').write('// generato da tools/build_arte.py\nwindow.ATLAS = window.ATLAS || {}; window.ATLAS.capi = ' + json.dumps(meta, separators=(',', ':')) + ';\n')
+print('capi', atlas.size, len(meta))
+frames = []
 bg = Image.open(os.path.join(ROOT, 'assets', 'source', 'bg_roma.png')).convert('RGB')
 bg = bg.resize((round(bg.width * 720 / bg.height), 720), Image.LANCZOS)
 bg.save(os.path.join(ROOT, 'assets', 'bg', 'roma.jpg'), quality=88); print('roma', bg.size)
