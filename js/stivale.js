@@ -266,7 +266,7 @@ function throwBomb(p) {
 }
 
 /* ---------------- the Vespona: the professor's scooter-tank ---------------- */
-function mount(p) { const V = S.veh; V.rider = p; V.st = 'go'; V.t = 0; V.flash = 0.3; p.inv = 1; S.hintT = 5; pop(V.x, V.y - 230, 'VESPONA!', '#ff5b4f', 1); Audio.sfx('siren'); }
+function mount(p) { const V = S.veh; V.rider = p; V.st = 'go'; V.t = 0; V.flash = 0.3; p.inv = 1; S.hintT = 5; pop(V.x, V.y - 230, `${(VK[V.kind] || VK.vespa).name}!`, '#ff5b4f', 1); Audio.sfx('siren'); }
 function dismount(ejected) {
   const V = S.veh, p = V.rider; if (!p) return;
   V.rider = null; p.x = V.x; p.y = V.y - 120; p.vy = -700; p.onGround = false; p.inv = 1.5;
@@ -629,7 +629,8 @@ function stepShots(dt) {
     it.vy += GRAV * dt; it.y = Math.min(groundUnder(it.x, it.y, it.vy, false), it.y + it.vy * dt); if (it.y >= groundUnder(it.x, it.y - 1, 0, false)) it.vy = 0;
     for (const p of alive()) if (!it.got && Math.abs(p.x - it.x) < 50 && Math.abs(p.y - it.y) < 80) {
       it.got = true; Audio.sfx('pickup');
-      if (it.k === 'bomb') { p.bombs += 5; pop(it.x, it.y - 90, 'GRANATE +5', '#ffd35a'); }
+      if (it.k === 'cibo') EX.eat(p, it);
+      else if (it.k === 'bomb') { p.bombs += 5; pop(it.x, it.y - 90, 'GRANATE +5', '#ffd35a'); }
       else { p.w = it.k; p.ammo = WEAPONS[it.k].ammo; pop(it.x, it.y - 90, WEAPONS[it.k].name + '!', WCOL[it.k], 1); Audio.sfx('reload'); }
     }
   }
@@ -683,7 +684,7 @@ function step(dt) {
   stepShots(dt);
   for (const q of S.pris) { q.t += dt; if (q.st === 'free') q.x += 170 * dt * (q.t > 0.8 ? 1 : 0); }
   for (const f of S.fx) { f.t += dt; if (f.k === 'sp') { f.vy += 900 * dt; f.x += f.vx * dt; f.y += f.vy * dt; } if (f.k === 'wave') { f.x += f.dir * 520 * dt; for (const p of alive()) if (p.y >= GROUND - 2 && Math.abs(p.x - f.x) < 30) kill(p); } }
-  S.fx = S.fx.filter((f) => f.t < ({ sp: f.life, wave: 1.6, ring: 0.6, mark: 0.95, puddle: 1.2, hit: 0.15, smoke: 0.7 }[f.k] || 0.6));
+  S.fx = S.fx.filter((f) => f.t < ({ sp: f.life, wave: 1.6, ring: 0.6, mark: 0.95, puddle: 1.2, hit: 0.15, smoke: 0.7, ono: 0.75, casco: 2.2 }[f.k] || 0.6));
   for (const p of S.pops) p.t += dt;
   S.pops = S.pops.filter((p) => p.t < (p.big ? 1.4 : 0.8));
   for (const o of S.props) o.shake = Math.max(0, (o.shake || 0) - dt);
@@ -1022,13 +1023,14 @@ function draw() {
   // items
   for (const it of S.items) {
     const b = Math.sin(T * 6) * 4;
+    if (it.k === 'cibo') { EX.drawFood(it, b); continue; }
     if (fxs(it.k === 'bomb' ? 'obj_4' : `obj_${'HSFR'.indexOf(it.k)}`, it.x, it.y + b, 78)) { if (it.k !== 'bomb') ptitle(it.k, it.x + 34, it.y - 50 + b, 16, '#ffffff', WCOL[it.k]); continue; }
     if (it.k === 'bomb') { g.fillStyle = '#3a4a2a'; g.beginPath(); g.arc(it.x, it.y - 22 + b, 16, 0, 7); g.fill(); ptxt('B', it.x, it.y - 16 + b, 12, '#ffd35a', 'center'); }
     else { g.fillStyle = '#10141c'; g.fillRect(it.x - 22, it.y - 48 + b, 44, 44); g.strokeStyle = WCOL[it.k]; g.lineWidth = 3; g.strokeRect(it.x - 22, it.y - 48 + b, 44, 44); ptitle(it.k, it.x, it.y - 14 + b, 24, '#ffffff', WCOL[it.k]); }
   }
   // the Vespona: vesp 0 ferma · 1-2 corre · 3 spara · 4 salta · 5 ammaccata
   const V = S.veh;
-  if (!V.wreck) {
+  if (EX.drawVehicle(V)) {} else if (!V.wreck) {
     const f = V.rider ? (V.shotT > 0 ? 3 : V.y < GROUND - 2 ? 4 : V.st === 'walk' ? 1 + Math.floor(T * 8) % 2 : 0) : 0;
     const vy = V.y - (V.rider && V.st === 'walk' ? Math.abs(Math.sin(T * 16)) * 3 : 0);
     spr('arte', `vesp_${f}`, V.x, vy, { scale: 1.0, face: V.face, flash: V.flash > 0 && Math.floor(T * 20) % 2 ? 0.7 : 0 });
@@ -1088,6 +1090,7 @@ function draw() {
     else if (f.k === 'wave') { g.fillStyle = '#ff9a5a'; g.globalAlpha = 0.8; g.beginPath(); g.ellipse(f.x, GROUND, 34, 40, 0, Math.PI, 0); g.fill(); g.globalAlpha = 1; }
     else if (f.k === 'ring') { const k = f.t / 0.6; g.strokeStyle = `rgba(255,210,90,${1 - k})`; g.lineWidth = 8; g.beginPath(); g.ellipse(f.x, f.y, 60 + k * 400, 20 + k * 120, 0, 0, 7); g.stroke(); }
   }
+  EX.drawFxExtra();
   for (const p of S.pops) { const k = p.t / (p.big ? 1.4 : 0.8); g.globalAlpha = 1 - k * k; ptitle(p.s, p.x, p.y - k * 50, p.big ? 18 : 13, '#ffffff', p.c); g.globalAlpha = 1; }
   g.restore();
   drawHUD();
@@ -1104,7 +1107,7 @@ function hudFx(p, i) {
   if (p.out) { if (Math.floor(T * 2) % 2) ptxt('FUOCO PER CONTINUARE', x + 36 + o, 74, 9, ink, 'left', false); return; }
   const w = S.veh.rider === p ? null : p.w;
   ptitle(w || 'V', x + 50 + o, 80, 20, '#ffffff', w ? WCOL[w] : '#ff5b4f');
-  ptxt(w ? (p.ammo === Infinity ? 'INF.' : String(p.ammo)) : `${Math.max(0, S.veh.hp)}/10`, x + 70 + o, 76, 10, ink, 'left', false);
+  ptxt(w ? (p.ammo === Infinity ? 'INF.' : String(p.ammo)) : `${Math.max(0, S.veh.hp)}/${S.veh.max || 10}`, x + 70 + o, 76, 10, ink, 'left', false);
   fxs('ui_4', x + 150 + o, 70, 22); ptxt(String(p.bombs), x + 164 + o, 76, 10, ink, 'left', false);
   const n = p.hp ?? 1;
   for (let k = 0; k < n; k++) fxs('ui_7', x + 222 + k * 17, 70, 16);
@@ -1133,7 +1136,7 @@ function drawHUD() {
   else if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; const rib = fxBox('ui_5', W / 2 - 400, 206, 800, 170); ptitle(S.banner.a, W / 2, rib ? 290 : 300, rib ? 32 : 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, rib ? 406 : 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.16', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.17', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- save, difficulty, records ---------------- */
@@ -1368,8 +1371,10 @@ function frame(now) {
   else if (mode === 'brief') { tickBrief(dt); if (mode === 'brief') drawBrief(); drawFilm(); }
   else if (mode === 'reveal') { tickReveal(dt); if (mode === 'reveal') drawReveal(); drawFilm(); }
   else if (MENUS[mode]) { MENUS[mode][0](); if (MENUS[mode]) MENUS[mode][1](); drawFilm(); }
+  else if (mode === 'cartello') { /* the title card is drawn by EX.overlay */ }
   else if (mode === 'nome') { tickName(); if (mode === 'nome') drawName(); drawFilm(); }
   else { if (mode === 'end' && Audio.ctx) Audio.playSong(0, 'finale'); drawEnd(mode === 'end'); drawFilm(); }
+  EX.overlay(dt);
   requestAnimationFrame(frame);
 }
 window.Stivale = window.Assalto = {

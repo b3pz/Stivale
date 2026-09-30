@@ -1,4 +1,4 @@
-# MAMMA MIA, I MARZIANI! — prova 0.16
+# MAMMA MIA, I MARZIANI! — prova 0.17
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.
@@ -31,6 +31,16 @@ Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`
   8. Il Comandante: tutto quanto… e poi il casco si apre.
 - Ogni città ha il suo fondale, le sue piattaforme disegnate e i suoi oggetti di scena (capitello, gondola, vaso, auto, bitta, pupazzo di neve, palma, tubo).
 - Casse delle armi, granate, barili, colpi, esplosioni, cornici del punteggio e barra del boss: tutto disegnato (blocco 8).
+- **Cartone anni '30**: intro a cinegiornale, cartello da film muto prima di ogni missione, transizioni a iride,
+  onomatopee (BANG! BOOM! BONK!), fermo-immagine sui colpi forti, caschi che volano.
+- **Cibo** (pizza, cannolo, arancino, gelato…): ridà un cuore. Sulle piattaforme e a volte nelle casse.
+- **Mini-boss** a metà di ogni livello; **nemici della città** a Venezia, Torino, Genova e Dolomiti.
+- **Veicoli delle città**: gondola-cannone (Venezia), funivia (Dolomiti, spara in basso), carrello-gru (Genova, granata = cassa), traghetto (Stretto). Altrove la Vespona.
+- **Voto a fine missione** (S/A/B/C) con bonus punti; **12 trofei** nel menu.
+- **Minigioco bonus "Acchiappa i dischi"** dopo Venezia, Torino e Dolomiti (3000 punti in squadra = una vita in più).
+- **Battute in dialetto** dei prigionieri liberati.
+- **Extra** (dopo aver finito il gioco): boss di fila a tempo, arcade a un solo credito.
+- **Touch**: su telefono e tablet compaiono levetta e tasti.
 - Dopo l'Etna: la scena della rivelazione e il finale.
 - Game over: fuoco = riprova la missione, start = titolo.
 
@@ -49,6 +59,7 @@ Online: https://b3pz.github.io/Stivale/ (il repository si chiama ancora Stivale)
 - I cuori dipendono dalla difficoltà. I boss si colpiscono meglio quando sono stanchi (le stelline sopra la testa).
 
 ## Grafica
-Tutta disegnata: logo, scene d'apertura, rivelazione e finale, ritratti, teste nel punteggio.
+Tutta disegnata. Da `MAMMA_MIA_kit_immagini_2.zip` arrivano (facoltativi, finché mancano ci sono segnaposto):
+cibo, nemici delle città, veicoli, mini-boss, onomatopee, trofei. Vanno in `assets/source/` e poi `tools/build_fx.py`.
 
 Il vecchio prototipo con i personaggi di Primal Sentinels è in `assalto/`.

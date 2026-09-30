@@ -64,7 +64,7 @@ function menuNav(sel, n) {   // shared navigation for every menu: returns {sel, 
 }
 
 /* ---------- title menu ---------- */
-function titleRows() { return [['gioca', 'GIOCA'], ...(SAVE.max > 0 ? [['missione', '']] : []), ['come', 'COME SI GIOCA'], ['record', 'RECORD'], ['opzioni', 'OPZIONI']]; }
+function titleRows() { return [['gioca', 'GIOCA'], ...(SAVE.max > 0 ? [['missione', '']] : []), ...(SAVE.won ? [['extra', 'EXTRA']] : []), ['come', 'COME SI GIOCA'], ['record', 'RECORD'], ['trofei', 'TROFEI'], ['opzioni', 'OPZIONI']]; }
 function titleMenuInput() {
   const rows = titleRows(); tsel.row = Math.min(tsel.row, rows.length - 1);
   const n = menuNav(tsel.row, rows.length); tsel.row = n.sel;
@@ -75,15 +75,17 @@ function titleMenuInput() {
   if (what === 'gioca' || what === 'missione') { mode = 'select'; sel = { slots: [{ dev: n.dev, hero: 0, ready: false }] }; }
   else if (what === 'come') { mode = 'come'; menuS.page = 0; }
   else if (what === 'record') mode = 'record';
+  else if (what === 'trofei') mode = 'trofei';
+  else if (what === 'extra') mode = 'extra';
   else { mode = 'opzioni'; menuS.opt = 0; menuS.back = 'title'; }
 }
 function drawTitleMenu() {
   const rows = titleRows();
   const gr = g.createLinearGradient(0, 270, 0, 330 + rows.length * 56); gr.addColorStop(0, 'rgba(4,6,14,0)'); gr.addColorStop(0.3, 'rgba(4,6,14,.55)'); gr.addColorStop(1, 'rgba(4,6,14,.55)');
-  g.fillStyle = gr; g.fillRect(W / 2 - 380, 270, 760, rows.length * 56 + 60);
+  g.fillStyle = gr; g.fillRect(W / 2 - 380, 260, 760, rows.length * 50 + 50);
   rows.forEach(([k, label], i) => {
     const text = k === 'missione' ? `< MISSIONE ${tsel.mi + 1}: ${MISSIONS[tsel.mi].city} >` : label;
-    menuItem(text, W / 2, 330 + i * 56, tsel.row === i, 22);
+    menuItem(text, W / 2, 310 + i * 50, tsel.row === i, 20);
   });
   ptxt('FRECCE O LEVETTA: SCEGLI · FUOCO: CONFERMA · GRANATA: INDIETRO', W / 2, 690, 9, '#e8d8b8', 'center');
 }
@@ -120,7 +122,7 @@ function drawCome() {
       [() => spr('arte', 'pris_0', L + 40, 340, { scale: 0.55 }), 'I prigionieri legati: sparagli per liberarli (vale 1000 punti).'],
       [() => fxs('obj_5', L + 40, 390, 40), 'Granate: poche ma fortissime. Contro i boss sono la cosa migliore.'],
       [() => spr('arte', 'vesp_0', L + 40, 470, { scale: 0.42 }), 'La Vespona: saltaci sopra. FUOCO cannone (SU per sparare in alto), GRANATA clacson, GIU + SALTO per scendere.'],
-      [() => { fxs('ui_7', L + 25, 520, 22); fxs('ui_7', L + 55, 520, 22); }, `Ogni vita ha dei cuori (in ${DK().name}: ${DK().hp}). Finiti i cuori perdi una vita; finite le vite, FUOCO per continuare.`],
+      [() => { fxs('ui_7', L + 25, 520, 22); fxs('ui_7', L + 55, 520, 22); }, `Ogni vita ha dei cuori (in ${DK().name}: ${DK().hp}). Il cibo italiano ridà un cuore. Finiti i cuori perdi una vita.`],
       [() => fxs('ui_6', L + 40, 572, 34), 'I boss hanno delle mosse fisse: quando hanno le stelline in testa sono stanchi e prendono più danni.'],
     ];
     R.forEach(([ic, t], i) => { ic(); for (const [j, row] of wrapText(t, 820, 17).entries()) txt(row, L + 110, 262 + i * 62 + j * 22 - (wrapText(t, 820, 17).length > 1 ? 10 : 0), 17, ink, 'left', 700); });

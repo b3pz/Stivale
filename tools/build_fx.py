@@ -14,8 +14,8 @@ from scipy import ndimage
 from pack import pack
 from segment import ROOT
 
-SHEETS = [('teste', 'testa', 1, 3), ('oggetti', 'obj', 2, 4), ('colpi_eroi', 'he', 2, 4), ('colpi_nemici', 'en', 4, 4), ('effetti', 'ef', 2, 4), ('interfaccia', 'ui', 2, 4), ('ritratti', 'rit', 2, 4)]
-BOTTOM = {'obj', 'en_13', 'en_14', 'en_15', 'ef_4'}   # these stand on the ground: anchor at the bottom
+SHEETS = [('teste', 'testa', 1, 3), ('cibo', 'cibo', 2, 4), ('nemici_citta', 'nc', 2, 4), ('veicoli', 've', 2, 4), ('miniboss', 'mb', 2, 4), ('onomatopee', 'ono', 2, 4), ('trofei', 'tro', 3, 4), ('oggetti', 'obj', 2, 4), ('colpi_eroi', 'he', 2, 4), ('colpi_nemici', 'en', 4, 4), ('effetti', 'ef', 2, 4), ('interfaccia', 'ui', 2, 4), ('ritratti', 'rit', 2, 4)]
+BOTTOM = {'obj', 'cibo', 'nc', 've', 'mb', 'en_13', 'en_14', 'en_15', 'ef_4'}   # these stand on the ground: anchor at the bottom
 K = 0.5
 frames = []
 for fn, key, rows, cols in SHEETS:
