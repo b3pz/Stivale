@@ -102,9 +102,9 @@ const MISSIONS = [
     'Hanno portato via le gondole... e pure i gondolieri!',
     'In laguna è spuntata una piovra di latta con una gondola incastrata in testa.',
     'Saltate le sue onde e state lontani dai goccioloni d\'olio.'] },
-  { city: 'FIRENZE', place: 'IL PONTE VECCHIO', bg: 'firenze', tint: '#f0a860', boss: 'leggig', brief: [
+  { city: 'FIRENZE', place: 'IL PONTE VECCHIO', bg: 'firenze', tint: '#f0a860', boss: 'cupola', brief: [
     'Il Ponte Vecchio è pieno di soldati, e le botteghe sono chiuse.',
-    'Un centurione di latta grande come una torre blocca la strada per il Duomo.',
+    'E sopra il Duomo vola una cupola che non è la nostra: è un disco volante travestito! Non restate sotto il suo raggio.',
     'Bruno, tu che sei di qui: fagli vedere come si carica un cinghiale!'] },
   { city: 'TORINO', place: 'LA FABBRICA', bg: 'torino', tint: '#8890a8', boss: 'catena', brief: [
     'La fabbrica lavora di notte: montano robot a molla, uno dopo l\'altro.',
@@ -138,6 +138,8 @@ const CAPI = {
     F: { i: 0, w: [1, 2], a: 3, sp: 4, t: 6, d: 7, dd: 5 }, att: [['slam', 'a'], ['spray', 'sp'], ['charge', 'a'], ['spray', 'sp']] },
   leggig: { name: 'IL CENTURIONE GIGANTE', tip: 'SALTA LE ONDE · SPARA AI SOLDATI CHE CHIAMA', sh: 'arte', k: 'leg', sc: 1.85, hp: 360, ht: 320, cw: 100,
     F: { i: 0, w: [1, 2], a: 3, sp: 4, t: 7, d: 6, dd: 5 }, att: [['charge', 'a'], ['summon', 'sp'], ['slam', 'a']] },
+  cupola: { name: 'LA CUPOLA VOLANTE', tip: 'SCAPPA DAL RAGGIO TRAENTE · QUANDO CADE, COLPISCI!', sh: 'capi', k: 'cupola', sc: 1, hp: 360, ht: 260, fly: true, cw: 110, proj: 'cball',
+    F: { i: 0, w: [1, 2], a: 4, sp: 1, t: 6, d: 7, dd: 5 }, att: [['throw', 'a'], ['tractor', 'sp'], ['summon', 'sp'], ['throw', 'a'], ['tractor', 'sp']] },
   catena: { name: 'LA CATENA DI MONTAGGIO', tip: 'SPARA AGLI INGRANAGGI · SALTA LE ONDE', sh: 'capi', k: 'catena', sc: 1, hp: 380, ht: 300, proj: 'gear',
     F: { i: 0, w: [1, 2], a: 3, sp: 4, t: 6, d: 7, dd: 5 }, att: [['throw', 'a'], ['summon', 'sp'], ['slam', 'a'], ['throw', 'a']] },
   sotto: { name: 'IL SOTTOMARINO SPAZIALE', tip: 'SILURO ALTO: GIU · SILURO BASSO: SALTA', sh: 'capi', k: 'sotto', sc: 1, hp: 400, ht: 280,
@@ -436,7 +438,7 @@ function stepBoss(dt) {
   const B = S.boss; if (!B) return;
   const D = CAPI[B.id];
   B.t += dt; B.flash = Math.max(0, B.flash - dt);
-  if (D.fly && !B.dead) B.y = 380 + Math.sin(S.t * 2) * 26;
+  if (D.fly && !B.dead) { const ty = B.st === 'tired' ? GROUND : 380 + Math.sin(S.t * 2) * 26; B.y += (ty - B.y) * Math.min(1, dt * (B.st === 'tired' ? 5 : 3)); }   // flying bosses fall down when tired
   if (B.dead) {
     if (D.fly) B.y = Math.min(GROUND, B.y + dt * 180);
     if (B.t > 3 && !S.win) { S.win = true; S.winT = 0; Audio.sfx('team'); }
@@ -512,6 +514,12 @@ function stepBoss(dt) {
       if (once(0.3)) { const hi = B.bn++ % 2 === 0; S.foeShots.push({ id: nid(), k: 'beam', x: B.x + B.face * 90, y: hi ? GROUND - 130 : GROUND - 34, dir: B.face, len: 1400, t: 0, vx: 0, vy: 0, g: 0, life: 1.6 }); Audio.sfx('bosswind'); }
       if (B.t > 2.1) bossTired(B);
       break;
+    case 'tractor':
+      // a light beam from below the saucer that chases you along the street
+      if (once(0.3)) { B.tr = { id: nid(), k: 'tract', x: B.x, y: B.y, t: 0, vx: 0, vy: 0, g: 0, life: 2.6 }; S.foeShots.push(B.tr); Audio.sfx('bosswind'); }
+      if (B.tr && B.tr.life > 0) { B.tr.x += clamp(P.x - B.tr.x, -150, 150) * dt * 1.2; B.tr.y = B.y; B.x = B.tr.x; }
+      if (B.t > 3) { B.tr = null; bossTired(B); }
+      break;
     case 'summon':
       if (once(0.6)) {
         const n = S.enemies.filter((e) => e.hp > 0).length;
@@ -551,6 +559,7 @@ function bossBox() {
 /* ---------------- projectiles, bombs, items ---------------- */
 function hitsPlayer(s, p) {
   const top = p.y - (p.crouch ? 70 : 115);
+  if (s.k === 'tract') return s.t > 0.6 && s.life > 0.1 && Math.abs(p.x - s.x) < 40;
   if (s.k === 'beam') { const d = (p.x - s.x) * s.dir; return s.t > 0.7 && s.life > 0.12 && d > -20 && d < s.len && s.y + 14 > top && s.y - 14 < p.y; }
   const r = s.r || 0;
   return Math.abs(s.x - p.x) < 22 + r && s.y + r > top && s.y - r < p.y;
@@ -581,7 +590,7 @@ function stepShots(dt) {
     if (s.t !== undefined) s.t += dt;
     if (s.spin !== undefined) s.spin += dt * (s.k === 'ball' ? 8 : 14);
     if (s.k === 'shield') { s.vx -= s.back * 700 * dt; if (S.boss && s.life < 2.2 && Math.abs(s.x - S.boss.x) < 60) s.life = 0; }
-    if (s.k !== 'shield' && s.k !== 'ball' && s.k !== 'beam' && s.y > GROUND - (s.k === 'dbomb' || s.k === 'drop' ? 6 : 0)) {
+    if (s.k !== 'shield' && s.k !== 'ball' && s.k !== 'beam' && s.k !== 'tract' && s.y > GROUND - (s.k === 'dbomb' || s.k === 'drop' ? 6 : 0)) {
       s.life = 0;
       if (s.k === 'dbomb') { boom(s.x, GROUND - 20, 0.6); for (const p of alive()) if (Math.abs(p.x - s.x) < 60 && p.y > GROUND - 60) kill(p); }
       else if (s.k === 'crys') spark(s.x, GROUND, '#bff4ff', 8);
@@ -589,10 +598,10 @@ function stepShots(dt) {
       else if (s.k === 'snow' || s.k === 'gear') spark(s.x, GROUND, s.k === 'snow' ? '#ffffff' : '#c8d2dc', 8);
     }
     if (s.life <= 0) continue;
-    for (const p of alive()) if (p !== S.veh.rider && s.life > 0 && hitsPlayer(s, p)) { kill(p); if (!s.keep && s.k !== 'beam') s.life = 0; }
+    for (const p of alive()) if (p !== S.veh.rider && s.life > 0 && hitsPlayer(s, p)) { kill(p); if (!s.keep && s.k !== 'beam' && s.k !== 'tract') s.life = 0; }
     if (S.veh.rider && s.life > 0) {
       const V = S.veh, vp = { x: V.x, y: V.y, crouch: false };
-      if (s.k === 'beam' ? hitsPlayer(s, vp) : Math.abs(s.x - V.x) < 100 + (s.r || 0) && s.y > V.y - 170 && s.y < V.y) { hurtVehicle(); if (s.k !== 'beam' && s.k !== 'ball') s.life = 0; }
+      if (s.k === 'beam' || s.k === 'tract' ? hitsPlayer(s, vp) : Math.abs(s.x - V.x) < 100 + (s.r || 0) && s.y > V.y - 170 && s.y < V.y) { hurtVehicle(); if (s.k !== 'beam' && s.k !== 'ball' && s.k !== 'tract') s.life = 0; }
     }
   }
   S.foeShots = S.foeShots.filter((s) => s.life > 0);
@@ -744,6 +753,14 @@ function drawFoeShot(s) {
   switch (s.k) {
     case 'shield': { g.save(); g.translate(s.x, s.y); g.scale(Math.cos(s.spin) * 0.5 + 0.6, 1); g.lineWidth = 5; g.strokeStyle = '#2a1a10'; for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#e8d6b4' : '#b8402a'; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 44, i * Math.PI / 4, (i + 1) * Math.PI / 4); g.fill(); } g.beginPath(); g.arc(0, 0, 44, 0, 7); g.stroke(); g.fillStyle = '#d8a020'; g.beginPath(); g.arc(0, 0, 12, 0, 7); g.fill(); g.stroke(); g.restore(); break; }
     case 'gear': { g.save(); g.translate(s.x, s.y); g.rotate(s.spin); g.fillStyle = '#9aa4ae'; g.beginPath(); for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8, r = i % 2 ? 14 : 20; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill(); g.stroke(); g.fillStyle = '#3a3a44'; g.beginPath(); g.arc(0, 0, 5, 0, 7); g.fill(); g.restore(); break; }
+    case 'cball': { g.fillStyle = '#23232b'; g.beginPath(); g.arc(s.x, s.y, 16, 0, 7); g.fill(); g.stroke(); g.fillStyle = 'rgba(255,255,255,.45)'; g.beginPath(); g.arc(s.x - 5, s.y - 5, 5, 0, 7); g.fill(); break; }
+    case 'tract': {
+      const on = s.t > 0.6, k = on ? Math.min(1, s.life * 4) : 0.35 + Math.sin(T * 30) * 0.15, top = s.y - 20;
+      g.save(); g.globalCompositeOperation = 'lighter';
+      g.fillStyle = `rgba(255,220,120,${0.55 * k})`; g.beginPath(); g.moveTo(s.x - 22, top); g.lineTo(s.x + 22, top); g.lineTo(s.x + 60, GROUND); g.lineTo(s.x - 60, GROUND); g.closePath(); g.fill();
+      if (on) { g.fillStyle = `rgba(255,250,220,${0.5 * k})`; for (let i = 0; i < 4; i++) { const yy = GROUND - ((T * 260 + i * 110) % (GROUND - top)); g.fillRect(s.x - 30, yy, 60, 5); } }
+      g.restore(); break;
+    }
     case 'snow': { g.fillStyle = '#f4f8ff'; g.beginPath(); g.arc(s.x, s.y, 18, 0, 7); g.fill(); g.stroke(); g.fillStyle = '#c8d8f0'; g.beginPath(); g.arc(s.x + 5, s.y + 5, 7, 0, 7); g.fill(); break; }
     case 'ball': { g.save(); g.translate(s.x, s.y); g.rotate(s.spin * Math.sign(s.vx || 1)); g.fillStyle = '#f4f8ff'; g.beginPath(); g.arc(0, 0, 44, 0, 7); g.fill(); g.lineWidth = 5; g.stroke(); g.strokeStyle = '#b8c8e0'; g.lineWidth = 4; for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(0, 0, 14 + i * 10, i, i + 1.6); g.stroke(); } g.restore(); break; }
     case 'torp': { g.save(); g.translate(s.x, s.y); g.scale(s.dir || 1, 1); g.fillStyle = '#b8402a'; g.beginPath(); g.ellipse(0, 0, 34, 12, 0, 0, 7); g.fill(); g.stroke(); g.fillStyle = '#e8d6b4'; g.fillRect(-40, -12, 8, 24); g.strokeRect(-40, -12, 8, 24); g.fillStyle = '#fff'; g.beginPath(); g.arc(18, -3, 5, 0, 7); g.fill(); g.fillStyle = '#000'; g.beginPath(); g.arc(20, -3, 2.5, 0, 7); g.fill(); g.beginPath(); g.arc(22, 5, 4, 0, Math.PI); g.stroke(); g.restore(); break; }
@@ -905,7 +922,7 @@ function drawHUD() {
   if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; ptitle(S.banner.a, W / 2, 300, 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.4', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.5', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- the professor's briefing ---------------- */

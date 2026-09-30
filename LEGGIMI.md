@@ -1,4 +1,4 @@
-# STIVALE (titolo provvisorio) — prova 0.4
+# STIVALE (titolo provvisorio) — prova 0.5
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.
@@ -13,7 +13,7 @@ Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`
 - **8 boss**, ognuno con i suoi attacchi:
   1. Il Gladiatore d'Acciaio: onde a terra, carica, scudo boomerang.
   2. La Piovra di Latta: onde, goccioloni d'olio, carica.
-  3. Il Centurione Gigante (segnaposto finché non arriva la Cupola Volante): carica, chiama i soldati, onde.
+  3. La Cupola Volante (vola): cannonate dalle tegole, raggio traente che ti insegue, dischi volanti. Quando è stanca cade a terra: colpiscila!
   4. La Catena di Montaggio: ingranaggi lanciati (si possono abbattere), robottini, onde.
   5. Il Sottomarino Spaziale: siluri alti (giù) e bassi (salta), carica.
   6. Il Pupazzo di Neve Meccanico: palle di neve che rotolano, palle lanciate, onde.
@@ -39,7 +39,6 @@ Online: https://b3pz.github.io/Stivale/ · oppure apri `index.html` con Chrome, 
 ## Grafica che manca ancora
 - Gli **sfondi delle città** (Venezia, Firenze, Torino, Genova, Dolomiti, Stretto, Etna): finché non ci sono, si vede Roma ricolorata.
   Basta mettere `assets/bg/venezia.jpg`, `firenze.jpg`, `torino.jpg`, `genova.jpg`, `dolomiti.jpg`, `stretto.jpg`, `etna.jpg` e il gioco li usa da solo.
-- Il boss di Firenze, **la Cupola Volante**.
 - **Ritratti e scene** (blocco 6).
 
 Il vecchio prototipo con i personaggi di Primal Sentinels è in `assalto/`.

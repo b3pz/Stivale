@@ -47,7 +47,7 @@ open(os.path.join(ROOT, 'js', 'arte.js'), 'w').write('// generato da tools/build
 print('arte', atlas.size, len(meta))
 # the bosses of the missions (all drawn facing left): atlas 'capi'
 frames = []
-for key, fn, h in [('piov', 'boss_piovra', 340), ('catena', 'boss_catena', 330), ('sotto', 'boss_sottomarino', 300), ('pupazzo', 'boss_pupazzo', 340), ('miraggio', 'boss_miraggio', 300), ('comand', 'boss_comandante', 350)]:
+for key, fn, h in [('piov', 'boss_piovra', 340), ('catena', 'boss_catena', 330), ('sotto', 'boss_sottomarino', 300), ('pupazzo', 'boss_pupazzo', 340), ('miraggio', 'boss_miraggio', 300), ('comand', 'boss_comandante', 350), ('cupola', 'boss_cupola', 290)]:
     sheet(fn + '.png', 2, 4, key, h, flip=True, wmin=300, wmax=560)
 atlas, meta = pack(frames)
 atlas.convert('RGBA').quantize(colors=256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(os.path.join(ROOT, 'assets', 'sprites', 'capi.png'), optimize=True)
