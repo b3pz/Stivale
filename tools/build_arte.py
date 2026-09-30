@@ -3,7 +3,7 @@ remo.png 4x4: 0-1 guardia · 2-7 corsa · 8 salto · 9 spara avanti · 10 spara 
               che spara · 12 lancia la bomba · 13 colpito · 14 a terra · 15 esulta
 invasore.png 2x4: 0-2 cammina · 3 spara · 4 spara in alto · 5 colpito · 6 a terra · 7 scappa
 boss_gladiatore.png 2x4: 0 fermo · 1 passo · 2 carica · 3 tridente · 4 lancia lo scudo · 5 colpito · 6 semidistrutto · 7 crolla
-bg_roma.png -> assets/bg/roma.jpg"""
+bg_<citta>.png -> assets/bg/<citta>.jpg"""
 import json, os
 from PIL import Image
 from titan_cut import cut_grid
@@ -54,6 +54,10 @@ atlas.convert('RGBA').quantize(colors=256, method=Image.Quantize.FASTOCTREE, dit
 open(os.path.join(ROOT, 'js', 'capi.js'), 'w').write('// generato da tools/build_arte.py\nwindow.ATLAS = window.ATLAS || {}; window.ATLAS.capi = ' + json.dumps(meta, separators=(',', ':')) + ';\n')
 print('capi', atlas.size, len(meta))
 frames = []
-bg = Image.open(os.path.join(ROOT, 'assets', 'source', 'bg_roma.png')).convert('RGB')
-bg = bg.resize((round(bg.width * 720 / bg.height), 720), Image.LANCZOS)
-bg.save(os.path.join(ROOT, 'assets', 'bg', 'roma.jpg'), quality=88); print('roma', bg.size)
+# the city backgrounds: every assets/source/bg_<city>.png -> assets/bg/<city>.jpg, 720 px high
+import glob
+for fn in sorted(glob.glob(os.path.join(ROOT, 'assets', 'source', 'bg_*.png'))):
+    city = os.path.basename(fn)[3:-4]
+    bg = Image.open(fn).convert('RGB')
+    bg = bg.resize((round(bg.width * 720 / bg.height), 720), Image.LANCZOS)
+    bg.save(os.path.join(ROOT, 'assets', 'bg', city + '.jpg'), quality=88); print(city, bg.size)
