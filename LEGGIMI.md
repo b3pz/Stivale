@@ -1,4 +1,4 @@
-# MAMMA MIA, I MARZIANI! — prova 0.18
+# MAMMA MIA, I MARZIANI! — prova 0.19
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.
@@ -32,10 +32,14 @@ Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`
 - Ogni città ha il suo fondale, le sue piattaforme disegnate e i suoi oggetti di scena (capitello, gondola, vaso, auto, bitta, pupazzo di neve, palma, tubo).
 - Casse delle armi, granate, barili, colpi, esplosioni, cornici del punteggio e barra del boss: tutto disegnato (blocco 8).
 - **Trappola di ogni città**: Roma colonne che cadono · Venezia acqua alta (sotto l'acqua trattieni il fiato: sali sui pontili o affoghi) ·
-  Firenze vasi · Torino nastri · Genova casse dalle gru · Dolomiti ghiaccio e valanghe · Stretto miraggi e vento · Etna lava e passerelle.
+  Firenze vasi · Torino nastri (e il pavimento della fabbrica ti trascina indietro, con qualche tratto fermo) · Genova casse dalle gru · Dolomiti ghiaccio e valanghe · Stretto miraggi e vento · Etna lava e passerelle.
 - **Bonus di ogni città** (medaglia dorata su una piattaforma): scudo (Roma), pinne (Venezia), ombrello per planare (Firenze), scarpe turbo (Torino),
   elmetto (Genova), scarponi chiodati (Dolomiti), occhiali del Gufo (Stretto), tuta ignifuga (Etna). Si perde perdendo una vita.
 - **Arene dei boss** con due piattaforme; il contatto col boss è più giusto: un buon salto lo evita.
+- **Caos da cartone**: tra un'ondata e l'altra i nemici continuano ad arrivare (dal bordo, col paracadute dai dischi, dai tombini);
+  sullo sfondo scappano i cittadini e passano dischi col raggio; a metà energia i boss si arrabbiano (più veloci, chiamano aiuto).
+  Quanto caos dipende dalla difficoltà.
+- **Veicoli**: travolgono le casse e liberano i prigionieri passandoci sopra; il cannone ora colpisce anche le casse.
 - **Coop online**: dal titolo COOP ONLINE → uno crea la stanza e legge il codice, l'altro entra con il codice. Serve Internet.
 - **Cartone anni '30**: intro a cinegiornale, cartello da film muto prima di ogni missione, transizioni a iride,
   onomatopee (BANG! BOOM! BONK!), fermo-immagine sui colpi forti, caschi che volano.

@@ -198,6 +198,12 @@ ESPR.barile = ['obj_7', 50, 0];
 const _drawEnemy = drawEnemy;
 drawEnemy = function (e) {
   const dead = e.st === 'dead', fl = e.flash > 0 ? 0.8 : 0;
+  if (e.para && !dead) {   // a patched striped parachute
+    const x = e.x, y = e.y - 190;
+    g.strokeStyle = '#2a1a10'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - 50, y); g.lineTo(x - 12, y + 90); g.moveTo(x + 50, y); g.lineTo(x + 12, y + 90); g.stroke();
+    for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? '#f2ece0' : '#d8402a'; g.beginPath(); g.moveTo(x, y + 6); g.arc(x, y + 6, 58, Math.PI + i * Math.PI / 4, Math.PI + (i + 1) * Math.PI / 4); g.fill(); }
+    g.lineWidth = 3; g.beginPath(); g.arc(x, y + 6, 58, Math.PI, 0); g.stroke();
+  }
   if (e.type === 'mini') {
     const bob = e.st === 'walk' ? -Math.abs(Math.sin(e.walk * 2)) * 5 : 0, sh = e.st === 'charge' && e.t < 0.6 ? rand(-3, 3) : 0;
     if (fxs(`mb_${e.mi + (dead ? 4 : 0)}`, e.x + sh, e.y + bob, 300, { face: -e.face, flash: fl })) return;
@@ -280,6 +286,77 @@ EX.drawVehicle = (V) => {
     if (alive().some((p) => Math.abs(p.x - V.x) < 220)) ptxt(`${K.name}: SALTACI SOPRA`, V.x, by + 90, 9, '#ffe3a0', 'center');
   }
   return true;
+};
+
+/* vehicles: ram the crates open, and Turin's floor drags them too */
+const _stepRider2 = stepRider;
+stepRider = function (p, c, dt) {
+  _stepRider2(p, c, dt);
+  const V = S.veh; if (!V.rider) return;
+  if (floorBelt(V.x) && V.y >= GROUND - 1 && !(VK[V.kind] || {}).fly) V.x -= 90 * dt;
+  for (const o of S.props) if (o.hp > 0 && Math.abs(o.x - V.x) < 110 && o.y > V.y - 40) { hitProp(o, 99, p); ono(o.x, o.y - 80, o.k === 'barrel' ? 7 : 4, 0.8); }
+  for (const q of S.pris) if (q.st === 'tied' && Math.abs(q.x - V.x) < 90 && Math.abs(q.y - V.y) < 60) freePris(q, p);
+};
+
+/* ---------------- chaos, like the cartoons: the screen is never quiet ----------------
+   - between the waves enemies keep coming (from the right, parachuting from saucers, jumping out of manholes)
+   - bosses get angry at half energy: faster, and they call help
+   - in the background the citizens run away and saucers fly by with their tractor beams */
+const CHAOS = [{ max: 5, every: 2.6 }, { max: 7, every: 2.0 }, { max: 9, every: 1.5 }];
+function chaosStep(dt) {
+  if (RMODE.rush || S.win) return;
+  const C = CHAOS[SAVE.diff] || CHAOS[0];
+  // the enemy trickle: never with a locked arena (those are the planned fights) and never at the boss
+  if (!S.boss && S.lock === null && S.t > 5) {
+    S.chT = (S.chT ?? 3) - dt;
+    const n = S.enemies.filter((e) => e.hp > 0).length;
+    if (S.chT <= 0 && n < C.max) {
+      S.chT = C.every * rand(0.8, 1.3);
+      const r = Math.random(), P = pick(alive()); if (!P) return;
+      if (r < 0.35) for (let k = 0; k < 1 + (Math.random() < 0.5 ? 1 : 0); k++) { const e = spawnEnemy(pick(['fante', 'fante', 'robo', CITTA_IDX[CITY()] !== undefined ? 'citta' : 'robo']), S.cam + W + 60 + k * 90); e.x = S.cam + W + 60 + k * 90; }
+      else if (r < 0.6) {   // parachute from a passing saucer
+        const x = clamp(P.x + rand(-300, 400), S.cam + 100, S.cam + W - 100), e = spawnEnemy('fante', x); e.y = -80; e.para = 1; e.x = x;
+        S.bg.push({ k: 'ufo', x: x - 300, y: 90, vx: 380, t: 0 });
+      }
+      else if (r < 0.8) { const e = spawnEnemy('drone', S.cam + (Math.random() < 0.5 ? -60 : W + 60), rand(170, 280)); e.over = true; }
+      else { const x = clamp(P.x + rand(250, 450), S.cam + 100, S.cam + W - 60), e = spawnEnemy(MI >= 1 ? 'robo' : 'fante', x); e.x = x; e.y = GROUND + 90; e.pop = 1; S.fx.push({ k: 'smoke', x, y: GROUND, t: 0 }); ono(x, GROUND - 90, 6, 0.6); }
+    }
+  }
+  for (const e of S.enemies) {
+    if (e.para && e.hp > 0) { e.y = Math.min(GROUND, e.y + 170 * dt); e.t = 0; if (e.y >= GROUND) e.para = 0; }
+    if (e.pop && e.hp > 0) { e.y = Math.max(GROUND, e.y - 400 * dt); if (e.y <= GROUND) e.pop = 0; }
+  }
+  // angry bosses
+  const B = S.boss;
+  if (B && !B.dead && B.st !== 'intro') {
+    if (!B.angry && B.hp < B.max * 0.5) { B.angry = 1; pop(B.x, B.y - 320, 'SI E ARRABBIATO!', '#ff5b4f', 1); ono(B.x, B.y - 240, 5, 1.4); S.shake = 18; Audio.sfx('roar'); }
+    if (B.angry) {
+      if (B.st === 'walk') B.cd -= dt * 0.7 * DK().foe;   // shorter pauses between attacks
+      B.helpT = (B.helpT ?? 6) - dt;
+      if (B.helpT <= 0 && S.enemies.filter((e) => e.hp > 0).length < 2 + SAVE.diff) { B.helpT = 9 - SAVE.diff * 1.5; const x = ARENA_X + (Math.random() < 0.5 ? 80 : W - 80); if (Math.random() < 0.5) { const e = spawnEnemy('drone', x, 200); e.over = true; } else { const e = spawnEnemy('fante', x); e.x = x; e.y = -80; e.para = 1; } }
+    }
+  }
+  // background life
+  S.bgT = (S.bgT ?? 1) - dt;
+  if (S.bgT <= 0) {
+    S.bgT = rand(1.5, 3.5);
+    if (Math.random() < 0.55) S.bg.push({ k: 'run', x: S.cam + W + 40, vx: -rand(260, 380), c: Math.floor(Math.random() * 4) + 4, t: 0, y: GROUND + 34 });
+    else S.bg.push({ k: 'ufo', x: S.cam - 200, y: rand(70, 150), vx: rand(220, 360), t: 0, beam: Math.random() < 0.5 });
+  }
+  for (const o of S.bg) { o.t += dt; o.x += o.vx * dt; }
+  S.bg = S.bg.filter((o) => o.x > S.cam - 400 && o.x < S.cam + W + 400 && o.t < 12);
+}
+EX.drawBgLife = () => {
+  for (const o of S.bg || []) {
+    if (o.k === 'ufo') {
+      if (o.beam) { g.save(); g.globalAlpha = 0.25; g.fillStyle = '#fff2b0'; g.beginPath(); g.moveTo(o.x - 12, o.y + 10); g.lineTo(o.x + 12, o.y + 10); g.lineTo(o.x + 60, GROUND - 60); g.lineTo(o.x - 60, GROUND - 60); g.fill(); g.restore(); }
+      spr('arte', `disco_${Math.floor(T * 6) % 2}`, o.x, o.y + 40, { scale: 0.45, face: Math.sign(o.vx), alpha: 0.75 });
+    } else {   // a citizen running away, arms up, in front of the street
+      const b = Math.abs(Math.sin(o.t * 14)) * 10;
+      spr('arte', `pris_${o.c}`, o.x, o.y - b, { scale: 0.75, face: -1 });
+      if (Math.floor(o.t * 3) % 3 === 0) ptxt(pick(['AIUTO!', 'MAMMA MIA!', 'SCAPPATE!']), o.x, o.y - 120, 8, '#ffffff', 'center');
+    }
+  }
 };
 
 /* ---------------- mission grade ---------------- */
@@ -499,7 +576,7 @@ EX.takePerk = (p, it) => {
 const _newGame = newGame;
 newGame = function (players, mi = 0, keep = null) {
   _newGame(players, mi, keep);
-  S.banner = null; S.hurts = 0; S.freeze = 0;
+  S.banner = null; S.hurts = 0; S.freeze = 0; S.bg = [];
   const kind = RMODE.rush ? 'vespa' : CITY_VEH[CITY()] || 'vespa';
   Object.assign(S.veh, { kind, hp: VK[kind].hp, max: VK[kind].hp });
   placePerk();
@@ -544,6 +621,7 @@ step = function (dt) {
   RMODE.t += RMODE.rush && !S.win ? dt : 0;
   const w = S.win; _step(dt);
   if (!S) return;
+  if (mode === 'play') chaosStep(dt);
   if (!w && S.win) onWin();
   for (const f of S.fx) if (f.k === 'casco') { f.vy += 1500 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.vx * dt * 0.05; if (f.y > GROUND - 17) { f.y = GROUND - 17; f.vy *= -0.4; f.vx *= 0.7; } }
   S.fx = S.fx.filter((f) => f.k !== 'casco' || f.t < 2.2);

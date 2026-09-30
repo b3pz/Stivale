@@ -73,6 +73,8 @@ function loadLevel(mi) {
   DECO_X = [];
   for (let x = 380; x < ARENA_X + W - 200; x += 1000 + (x % 3) * 90) if (!CRATES.some(([cx]) => Math.abs(cx - x) < 150) && !PRISONERS.some(([px]) => Math.abs(px - x) < 150) && !(LV.geysers || []).some((gx) => Math.abs(gx - x) < 150)) DECO_X.push(x);
 }
+/* Turin: the factory floor is one long conveyor belt that drags you back, with a few still stretches to rest */
+function floorBelt(x) { return LV && LV.floorBelt && !S.boss && x > 500 && !LV.floorBelt.some(([a, b]) => x > a && x < b); }
 function platAt(x, y) { return PLATFORMS.find((P) => !P.gone && x > P[0] && x < P[0] + P[1] && Math.abs(y - P[2]) < 3); }
 
 /* ---------------- the heroes ----------------
@@ -203,7 +205,7 @@ function stepPlayer(p, c, dt) {
   if (LV.hazard === 'ghiaccio' && p.onGround && p.perk !== 'dolomiti') p.vx = (p.vx || 0) + (dx * sp - (p.vx || 0)) * Math.min(1, dt * 2.2);   // ice: you slide
   else p.vx = dx * sp;
   p.x += p.vx * dt;
-  if (p.onGround) { const P = platAt(p.x, p.y); if (P && P.belt) p.x += P.belt * 120 * dt; }   // conveyor belts
+  if (p.onGround) { const P = platAt(p.x, p.y); if (P && P.belt) p.x += P.belt * 120 * dt; else if (!P && floorBelt(p.x)) p.x -= (p.perk === 'torino' ? 70 : 125) * dt; }   // conveyor belts (Turin: the whole floor pulls you back)
   const lo = S.cam + 40, hi = (S.lock !== null ? S.lock + W : S.cam + W) - 40;
   p.x = clamp(p.x, lo, hi);
   p.run = dx && p.onGround ? p.run + dt * 9 * R.run : 0;
@@ -599,7 +601,7 @@ function stepShots(dt) {
     if (B && !B.dead && s.life > 0) { const bb = bossBox(); if (Math.abs(s.x - B.x) < bb.hw + r && s.y > bb.top && s.y < bb.bot) { hurtBoss(s.dmg, s.by); spark(s.x, s.y, '#ffcf8a', 4); if (s.w !== 'F') { s.life = 0; hitAt(); } } }
     // shoot down gears, torpedoes, little bombs
     for (const f of S.foeShots) if (f.shootable && f.life > 0 && s.life > 0 && Math.abs(f.x - s.x) < (f.r || 10) + r && Math.abs(f.y - s.y) < (f.r || 10) + r) { f.life = 0; if (s.w !== 'F') s.life = 0; spark(f.x, f.y, '#ffe08a', 8); Audio.sfx('break'); if (s.by && s.by.score !== undefined) s.by.score += 50; }
-    for (const o of S.props) if (o.hp > 0 && s.life > 0 && Math.abs(s.x - o.x) < 40 + r && s.y > o.y - 90 && s.y < o.y) { hitProp(o, s.dmg, s.by); if (s.w !== 'F') s.life = 0; }
+    for (const o of S.props) if (o.hp > 0 && s.life > 0 && Math.abs(s.x - o.x) < 40 + r && s.y > o.y - (s.w === 'L' ? 170 : 90) && s.y < o.y) { hitProp(o, s.dmg, s.by); if (s.w !== 'F') s.life = 0; }
     for (const q of S.pris) if (q.st === 'tied' && s.life > 0 && Math.abs(s.x - q.x) < 40 && s.y > q.y - 110 && s.y < q.y) { freePris(q, s.by); s.life = 0; }
   }
   S.shots = S.shots.filter((s) => s.life > 0);
@@ -778,6 +780,18 @@ function drawHazardFront() {   // in front: the high water
   g.globalAlpha = 0.85 * Math.min(1, S.water.h * 3); g.strokeStyle = '#bfe4ff'; g.lineWidth = 3; g.beginPath();
   for (let x = 0; x <= W; x += 20) g.lineTo(S.cam + x, y + Math.sin((x + S.t * 80) / 40) * 4);
   g.stroke(); g.restore();
+}
+function drawFloorBelt() {
+  if (S.boss) return;
+  const y = GROUND - 6, off = ((S.t * 125) % 36);
+  g.save();
+  for (let x = Math.max(500, S.cam - 40); x < S.cam + W + 40; x += 36) {
+    if (!floorBelt(x)) continue;
+    g.fillStyle = 'rgba(30,28,34,.85)'; g.fillRect(x, y, 36, 18); g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(x, y + 17, 36, 3);
+    g.fillStyle = '#ffd35a'; const cx = x + 36 - off; g.beginPath(); g.moveTo(cx, y + 3); g.lineTo(cx - 9, y + 8); g.lineTo(cx, y + 13); g.fill();
+  }
+  for (const [a, b] of LV.floorBelt) if (b > S.cam && a < S.cam + W) { g.fillStyle = 'rgba(120,120,130,.5)'; g.fillRect(a, y, b - a, 16); }
+  g.restore();
 }
 function drawBelt(x, pw, py, dir) {   // Turin: the conveyor strip on top of the walkway
   g.save(); g.beginPath(); g.rect(x + 10, py - 3, pw - 20, 10); g.clip();
@@ -1049,6 +1063,8 @@ function draw() {
   const city = IMG[MISSIONS[MI].bg] ? MISSIONS[MI].bg : 'roma';
   if (IMG.piatt && window.ATLAS.piatt && window.ATLAS.piatt[`${city}_deco`]) DECO_X.forEach((dx, i) => { if (dx > S.cam - 300 && dx < S.cam + W + 300) spr('piatt', `${city}_deco`, dx, GROUND + 6, { scale: 0.75, face: i % 2 ? -1 : 1 }); });
   drawHazardBack();
+  EX.drawBgLife();
+  if (LV.floorBelt) drawFloorBelt();
   // props
   for (const o of S.props) if (o.hp > 0) { const ox = o.x + (o.shake > 0 ? rand(-3, 3) : 0); if (!fxs(o.k === 'barrel' ? 'obj_7' : 'obj_6', ox, o.y, o.k === 'barrel' ? 76 : 96)) spr('items', o.k, ox, o.y, { scale: 1.6 }); }
   // prisoners: pris 0-3 legati · 4-7 liberi
@@ -1180,7 +1196,7 @@ function drawHUD() {
   else if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; const rib = fxBox('ui_5', W / 2 - 400, 206, 800, 170); ptitle(S.banner.a, W / 2, rib ? 290 : 300, rib ? 32 : 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, rib ? 406 : 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.18', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.19', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- save, difficulty, records ---------------- */
