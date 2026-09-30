@@ -95,6 +95,7 @@
   for (const k in MUSIC_INDEX) delete MUSIC_INDEX[k];
   MUSIC.forEach((S, i) => { MUSIC_INDEX[S.name] = i; });
   Audio.FILES = MUSIC.map((S) => S.name);
+  try { if (!localStorage.getItem('primal-vol')) { Audio.musicVol = 0.4; } } catch (e) {}
   for (const S of MUSIC) Audio.fileOK[S.name] = false;   // no MP3 lookups: the orchestra is all here
 
   /* the drummer: which hits on each 16th [kind, …] */
@@ -117,16 +118,16 @@
     lead(kind, hz, d, when, s) {
       const v = (f, dd, type, vol, sl = 1, w = when) => this.mtone(f, dd, type, vol, sl, w);
       switch (kind) {
-        case 'tromba': v(hz, d, 'sawtooth', 0.016); v(hz * 1.003, d, 'square', 0.012); v(hz * 0.995, Math.min(d, 0.06), 'square', 0.01, 1.04); break;
+        case 'tromba': v(hz, d, 'triangle', 0.04); v(hz * 2, d * 0.8, 'sine', 0.008); v(hz * 1.003, d, 'square', 0.003); break;
         case 'flauto': v(hz, d, 'sine', 0.05); v(hz * 2, d * 0.7, 'sine', 0.005); break;
-        case 'fischio': v(hz * 2, d, 'sine', 0.035, 1.004); v(hz * 2.003, d, 'sine', 0.01); break;
-        case 'fisarmonica': v(hz, d, 'square', 0.013); v(hz * 1.006, d, 'sawtooth', 0.009); v(hz * 2, d, 'square', 0.004); break;
+        case 'fischio': v(hz, d, 'sine', 0.045, 1.002); v(hz * 2, d * 0.6, 'sine', 0.006); break;
+        case 'fisarmonica': v(hz, d, 'triangle', 0.035); v(hz * 1.006, d, 'triangle', 0.02); v(hz * 2, d, 'sine', 0.006); break;
         case 'mandolino': {   // tremolo: the note is picked again every 16th
           const n = Math.max(1, Math.round(d / this.sd));
-          for (let k = 0; k < n; k++) { v(hz, this.sd * 0.8, 'square', 0.014, 1, when + k * this.sd); v(hz * 2, this.sd * 0.5, 'triangle', 0.008, 1, when + k * this.sd); }
+          for (let k = 0; k < n; k++) { v(hz, this.sd * 0.8, 'triangle', 0.03, 1, when + k * this.sd); v(hz * 2, this.sd * 0.4, 'sine', 0.006, 1, when + k * this.sd); }
           break;
         }
-        default: v(hz, d, 'triangle', 0.05); v(hz * 2, d * 0.8, 'sine', 0.007); v(hz * 3, d * 0.3, 'square', 0.002);   // clarinetto
+        default: v(hz, d, 'triangle', 0.045); v(hz * 2, d * 0.8, 'sine', 0.006);   // clarinetto
       }
     },
     update() {
@@ -146,33 +147,34 @@
         // bass: tuba oom-pah or walking bass
         if (S.bass === 'tuba' && (s === 0 || s === 8)) {
           const semi = bassSemi + (s === 8 ? 7 : 0) + 12;
-          this.mtone(semiHz(semi), sd * 1.6, 'triangle', 0.09, 0.98, when); this.mtone(semiHz(semi), sd * 1.2, 'sawtooth', 0.012, 0.98, when);
+          this.mtone(semiHz(semi), sd * 1.6, 'triangle', 0.09, 0.98, when); 
         } else if (S.bass === 'walk' && s % 4 === 0) {
           const walk = [0, ch.tri[1], 7, 9][s / 4];
-          this.mtone(semiHz(bassSemi + 12 + walk), sd * 3, 'triangle', 0.085, 1, when); this.mtone(semiHz(bassSemi + 12 + walk), sd * 0.4, 'square', 0.01, 1, when);
+          this.mtone(semiHz(bassSemi + 12 + walk), sd * 3, 'triangle', 0.085, 1, when); 
         }
         // comping: stride piano, banjo, accordion, soft arpeggio
         const notes = (oct) => ch.tri.map((t) => semiHz(60 + oct + ch.root + t));
         if (S.comp === 'stride' && (s === 4 || s === 12)) for (const f of notes(0)) this.mtone(f, sd * 1.4, 'triangle', 0.014, 1, when);
-        else if (S.comp === 'banjo' && s % 2 === 0) for (const f of notes(0)) this.mtone(f, sd * 0.35, 'square', 0.005, 1, when);
-        else if (S.comp === 'fisa' && (s === 4 || s === 12)) for (const f of notes(0)) { this.mtone(f, sd * 2.5, 'square', 0.005, 1, when); this.mtone(f * 1.004, sd * 2.5, 'sawtooth', 0.003, 1, when); }
+        else if (S.comp === 'banjo' && s % 2 === 0) for (const f of notes(0)) this.mtone(f, sd * 0.35, 'triangle', 0.008, 1, when);
+        else if (S.comp === 'fisa' && (s === 4 || s === 12)) for (const f of notes(0)) this.mtone(f, sd * 2.5, 'triangle', 0.008, 1, when);
         else if (S.comp === 'arp' && s % 2 === 0) { const f = notes(0)[(s / 2) % ch.tri.length]; this.mtone(f, sd * 2, 'sine', 0.014, 1, when); }
         // drums
+        const nz = (dd, v, hp, w) => this.mnoise(dd, v * 0.45, hp, w);
         for (const d of KIT[S.drums](s, bar)) {
           if (!d) continue;
-          if (d === 'K') { this.mtone(110, 0.14, 'sine', 0.14, 0.4, when); this.mnoise(0.02, 0.02, 900, when); }
+          if (d === 'K') { this.mtone(110, 0.14, 'sine', 0.14, 0.4, when); nz(0.02, 0.02, 900, when); }
           else if (d === 'k') this.mtone(95, 0.12, 'sine', 0.09, 0.5, when);
-          else if (d === 'S') { this.mnoise(0.1, 0.06, 1800, when); this.mtone(220, 0.05, 'triangle', 0.03, 0.7, when); }
-          else if (d === 's') this.mnoise(0.06, 0.045, 2200, when);
-          else if (d === 'B') this.mnoise(0.16, 0.028, 2600, when);
-          else if (d === 'b') this.mnoise(0.08, 0.018, 3000, when);
-          else if (d === 'W') this.mnoise(0.32, 0.012, 3500, when);
-          else if (d === 'R') { this.mnoise(0.08, 0.016, 7000, when); this.mtone(5200, 0.05, 'triangle', 0.002, 1, when); }
-          else if (d === 'r') this.mnoise(0.04, 0.01, 7000, when);
-          else if (d === 'h') this.mnoise(0.03, 0.016, 7500, when);
-          else if (d === 'T') this.mnoise(0.05, s % 4 === 0 ? 0.03 : 0.015, 5000, when);   // tambourine
+          else if (d === 'S') { nz(0.1, 0.06, 1800, when); this.mtone(220, 0.05, 'triangle', 0.03, 0.7, when); }
+          else if (d === 's') nz(0.06, 0.045, 2200, when);
+          else if (d === 'B') nz(0.16, 0.028, 2600, when);
+          else if (d === 'b') nz(0.08, 0.018, 3000, when);
+          else if (d === 'W') nz(0.32, 0.012, 3500, when);
+          else if (d === 'R') { nz(0.08, 0.016, 7000, when); this.mtone(5200, 0.05, 'triangle', 0.002, 1, when); }
+          else if (d === 'r') nz(0.04, 0.01, 7000, when);
+          else if (d === 'h') nz(0.03, 0.016, 7500, when);
+          else if (d === 'T') nz(0.05, s % 4 === 0 ? 0.03 : 0.015, 5000, when);   // tambourine
         }
-        if (s === 0 && bar % 8 === 0 && S.drums !== 'spazzole') this.mnoise(0.5, 0.02, 5000, when);
+        
         this.step++;
         this.next += sd;
       }

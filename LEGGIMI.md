@@ -1,4 +1,4 @@
-# MAMMA MIA, I MARZIANI! — prova 0.15
+# MAMMA MIA, I MARZIANI! — prova 0.16
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.
@@ -12,7 +12,8 @@ Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`
   Prima di ognuna il professor Gufo fa il briefing.
 - **Bruno si unisce a Firenze, Alba sulle Dolomiti**: nel briefing sinistra/destra cambia eroe.
 - **Salvataggio**: il gioco ricorda fin dove sei arrivato; dal titolo puoi ripartire da una missione già raggiunta.
-- **Difficoltà** facile (5 vite) · normale (3) · difficile (2, nemici più svelti, boss più duri).
+- **Difficoltà**: facile (5 vite da 3 cuori) · normale (4 vite da 2 cuori) · arcade (3 vite, un colpo e sei fuori).
+- **Menu**: gioca, come si gioca, record, opzioni (difficoltà, volume musica ed effetti, tasti di tastiera e joypad). In partita INVIO/START, ESC o P: pausa.
 - **Record**: la classifica dei migliori 8 punteggi, con le iniziali.
 - **Musica anni '30** fatta dal gioco: swing, tuba, clarinetto, fisarmonica, tarantella, un tema per città. Suoni da cartone (boing, fischio, clacson).
 - **Nemici**: il soldato, il robottino a molla (scintille basse: salta), l'ufficiale col megafono (urlo alto: abbassati; urlo basso: salta),
@@ -45,7 +46,7 @@ Online: https://b3pz.github.io/Stivale/ (il repository si chiama ancora Stivale)
 
 - Su + fuoco: spara in alto · in aria giù + fuoco: spara in basso · giù: accovacciati (i raggi alti passano sopra).
 - Giù + salto su una lastra: scendi.
-- Un colpo e sei fuori, 3 vite. I boss si colpiscono meglio quando sono stanchi (le stelline sopra la testa).
+- I cuori dipendono dalla difficoltà. I boss si colpiscono meglio quando sono stanchi (le stelline sopra la testa).
 
 ## Grafica
 Tutta disegnata: logo, scene d'apertura, rivelazione e finale, ritratti, teste nel punteggio.

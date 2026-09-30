@@ -14,8 +14,9 @@ const KEYSETS = [
   { l: ['ArrowLeft'], r: ['ArrowRight'], u: ['ArrowUp'], d: ['ArrowDown'], fire: ['KeyJ', 'KeyZ'], jump: ['KeyK', 'KeyX', 'Space'], bomb: ['KeyL', 'KeyC'], start: ['Enter'] },
   { l: ['KeyA'], r: ['KeyD'], u: ['KeyW'], d: ['KeyS'], fire: ['KeyF'], jump: ['KeyG'], bomb: ['KeyH'], start: ['KeyT'] },
 ];
+const PADSET = { fire: [2, 3, 7], jump: [0], bomb: [1, 5], start: [9] };
 const KEYS = new Set(), HITS = new Set();   // HITS: taps shorter than a frame are not lost
-addEventListener('keydown', (e) => { if (!e.repeat) HITS.add(e.code); KEYS.add(e.code); if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault(); Audio.unlock(); });
+addEventListener('keydown', (e) => { if (window.WAITKEY) { const f = window.WAITKEY; window.WAITKEY = null; e.preventDefault(); f(e.code); return; } if (!e.repeat) HITS.add(e.code); KEYS.add(e.code); if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault(); Audio.unlock(); });
 addEventListener('keyup', (e) => KEYS.delete(e.code));
 addEventListener('pointerdown', () => Audio.unlock());
 function readDevice(dev) {
@@ -30,7 +31,7 @@ function readDevice(dev) {
     const b = (i) => (p.buttons[i] && p.buttons[i].pressed ? 1 : 0);
     const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
     o.l = b(14) || ax < -0.45 ? 1 : 0; o.r = b(15) || ax > 0.45 ? 1 : 0; o.u = b(12) || ay < -0.5 ? 1 : 0; o.d = b(13) || ay > 0.5 ? 1 : 0;
-    o.jump = b(0); o.fire = b(2) || b(3) || b(7) ? 1 : 0; o.bomb = b(1) || b(5) ? 1 : 0; o.start = b(9);
+    for (const k of ['fire', 'jump', 'bomb', 'start']) o[k] = PADSET[k].some((i) => b(i)) ? 1 : 0;
   }
   return o;
 }
@@ -164,7 +165,7 @@ function newGame(players, mi = 0, keep = null) {
   Audio.playSong(0, MISSIONS[mi].bg);
 }
 function newPlayer(dev, hero, slot) {
-  return { id: nid(), dev, hero, slot, x: 160 + slot * 90, y: GROUND - 300, vy: 0, face: 1, st: 'drop', t: 0, inv: 2, lives: DK().lives, score: 0,
+  return { id: nid(), dev, hero, slot, x: 160 + slot * 90, y: GROUND - 300, vy: 0, face: 1, st: 'drop', t: 0, inv: 2, lives: DK().lives, hp: DK().hp, score: 0,
     w: 'P', ammo: Infinity, bombs: ROSTER[hero].bombs, cd: 0, aim: 'f', onGround: false, crouch: false, kills: 0, freed: 0, run: 0, knife: 0, dead: false, out: false };
 }
 
@@ -226,13 +227,14 @@ function stepPlayer(p, c, dt) {
   if (!V.rider && !V.wreck && Math.abs(p.x - V.x) < 95 && ((p.y > GROUND - 40 && c.pressed.u) || (p.vy > 0 && p.y > V.y - 175 && p.y < V.y - 40))) mount(p);
 }
 function respawn(p) {
-  p.dead = false; p.st = 'drop'; p.t = 0; p.inv = 2.5; p.vy = 0; p.w = 'P'; p.ammo = Infinity; p.bombs = Math.max(p.bombs, 5);
+  p.hp = DK().hp; p.dead = false; p.st = 'drop'; p.t = 0; p.inv = 2.5; p.vy = 0; p.w = 'P'; p.ammo = Infinity; p.bombs = Math.max(p.bombs, 5);
   const others = alive().filter((q) => q !== p);
   p.x = others.length ? others[0].x - 40 : S.cam + 200; p.y = GROUND - 380;
 }
 function kill(p) {
   if (p.inv > 0 || p.dead || p.out) return;
   if (p === S.veh.rider) return;
+  if ((p.hp ?? 1) > 1) { p.hp--; p.inv = 1.6; p.vy = -380; p.onGround = false; p.x -= p.face * 30; Audio.sfx('hurt'); spark(p.x, p.y - 80, '#ffffff', 10); pop(p.x, p.y - 170, 'AHIA!', '#ff8a7a'); return; }
   p.dead = true; p.t = 0; p.vy = -520; p.lives--; Audio.sfx('ko'); spark(p.x, p.y - 80, ROSTER[p.hero].color, 14);
   if (!S.players.some((q) => !q.dead && !q.out) && S.players.every((q) => q.lives <= 0)) S.overT = 3;
 }
@@ -279,10 +281,12 @@ function stepRider(p, c, dt) {
   V.x = clamp(V.x + dx * 250 * dt, S.cam + 110, (S.lock !== null ? S.lock + W : S.cam + W) - 110);
   if (c.pressed.jump) { if (c.d) { dismount(false); return; } if (V.y >= GROUND) { V.vy = -760; Audio.sfx('jump'); } }
   V.vy += GRAV * dt; V.y = Math.min(GROUND, V.y + V.vy * dt); if (V.y >= GROUND) V.vy = 0;
-  V.st = dx ? 'walk' : 'idle';
+  V.st = dx ? 'walk' : 'idle'; V.up = !!c.u;
   if (c.fire && V.cd <= 0) {
     V.cd = 0.3; V.shotT = 0.15;
-    S.shots.push({ id: nid(), x: V.x + V.face * 105, y: V.y - 105, vx: V.face * 900, vy: 0, w: 'L', by: p, life: 1.5, dmg: 4 });
+    const up = !!c.u, dg = up && dx !== 0;   // UP: the cannon points up · UP + direction: diagonal
+    const vx = up ? (dg ? V.face * 640 : 0) : V.face * 900, vy = up ? (dg ? -640 : -900) : 0;
+    S.shots.push({ id: nid(), x: V.x + V.face * (up ? (dg ? 70 : 30) : 105), y: V.y - (up ? 160 : 105), vx, vy, w: 'L', by: p, life: 1.5, dmg: 4 });
     Audio.sfx('special');
   }
   if (c.pressed.bomb) {
@@ -650,7 +654,8 @@ function freePris(q, by) {
 function step(dt) {
   S.t += dt; S.shake = Math.max(0, S.shake - dt * 30); if (S.hintT > 0) S.hintT -= dt;
   if (S.banner) { S.banner.t -= dt; if (S.banner.t <= 0) S.banner = null; }
-  for (const p of S.players) stepPlayer(p, inputOf(p.dev), dt);
+  for (const p of S.players) { const c = inputOf(p.dev); if (c.pressed.start && !p.out && !S.win) { mode = 'pausa'; menuS.pause = 0; Audio.sfx('select'); return; } stepPlayer(p, c, dt); }
+  if (HITS.delete('Escape') || HITS.delete('KeyP')) { mode = 'pausa'; menuS.pause = 0; return; }
   // camera: follows the players, never goes back
   const xs = alive().map((p) => p.x);
   if (S.veh.rider) xs.push(S.veh.x);
@@ -1029,7 +1034,7 @@ function draw() {
     spr('arte', `vesp_${f}`, V.x, vy, { scale: 1.0, face: V.face, flash: V.flash > 0 && Math.floor(T * 20) % 2 ? 0.7 : 0 });
     if (V.rider) {
       const R = ROSTER[V.rider.hero];
-      spr('arte', `${R.id}_${V.shotT > 0 ? R.F.s : R.F.i[0]}`, V.x - V.face * 22, vy - 92, { scale: 0.62, face: V.face });
+      spr('arte', `${R.id}_${V.up ? R.F.u : V.shotT > 0 ? R.F.s : R.F.i[0]}`, V.x - V.face * 22, vy - 92, { scale: 0.62, face: V.face });
     } else {
       // big bouncing sign, like the arcades: SALI!
       const by = V.y - 215 + Math.abs(Math.sin(T * 5)) * -18;
@@ -1101,8 +1106,9 @@ function hudFx(p, i) {
   ptitle(w || 'V', x + 50 + o, 80, 20, '#ffffff', w ? WCOL[w] : '#ff5b4f');
   ptxt(w ? (p.ammo === Infinity ? 'INF.' : String(p.ammo)) : `${Math.max(0, S.veh.hp)}/10`, x + 70 + o, 76, 10, ink, 'left', false);
   fxs('ui_4', x + 150 + o, 70, 22); ptxt(String(p.bombs), x + 164 + o, 76, 10, ink, 'left', false);
-  const n = p.lives, step = n > 3 ? 12 : 17;
-  for (let k = 0; k < n; k++) fxs('ui_7', x + 262 - (n - 1 - k) * step, 70, n > 3 ? 13 : 16);
+  const n = p.hp ?? 1;
+  for (let k = 0; k < n; k++) fxs('ui_7', x + 222 + k * 17, 70, 16);
+  ptxt(`x${p.lives}`, x + 280, 96, 9, ink, 'right', false);
 }
 function drawHUD() {
   S.players.forEach((p, i) => {
@@ -1120,20 +1126,20 @@ function drawHUD() {
   });
   ptxt(`${MI + 1}/8 ${MISSIONS[MI].city}`, W / 2, 30, 9, '#f2e2c0', 'center');
   if (S.lock !== null && !S.boss) ptxt('SGOMBERA LA ZONA!', W / 2, 52, 10, '#ff8a7a', 'center');
-  if (S.hintT > 0 && S.veh.rider) { panel(W / 2 - 300, 96, 600, 40, '#ff5b4f'); ptxt('FUOCO: CANNONE · GRANATA: CLACSON · GIU + SALTO: SCENDI', W / 2, 122, 10, '#ffffff', 'center'); }
+  if (S.hintT > 0 && S.veh.rider) { panel(W / 2 - 300, 96, 600, 40, '#ff5b4f'); ptxt('FUOCO: CANNONE (SU: IN ALTO) · GRANATA: CLACSON · GIU + SALTO: SCENDI', W / 2, 122, 10, '#ffffff', 'center'); }
   if (S.t < 4) { const k = clamp(Math.min(S.t - 0.3, 4 - S.t) * 3, 0, 1); g.globalAlpha = k; ptitle('VIA!', W / 2, 420, 60, '#ffffff', '#ff5b4f'); g.globalAlpha = 1; }
   const B = S.boss;
   if (B && !B.dead && FXF('ui_1')) { bar(W / 2 - 200, H - 47, 400, 14, B.hp / B.max, '#ff6a4a', '#2a1a10'); fxBox('ui_1', W / 2 - 270, H - 70, 540, 60); ptxt(CAPI[B.id].name, W / 2, H - 76, 10, '#ffe0a0', 'center'); }
   else if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; const rib = fxBox('ui_5', W / 2 - 400, 206, 800, 170); ptitle(S.banner.a, W / 2, rib ? 290 : 300, rib ? 32 : 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, rib ? 406 : 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.15', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.16', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- save, difficulty, records ---------------- */
 const GAME_NAME = ['MAMMA MIA,', 'I MARZIANI!'];
-const DIFFIC = [{ name: 'FACILE', lives: 5, foe: 0.7, boss: 0.75 }, { name: 'NORMALE', lives: 3, foe: 1, boss: 1 }, { name: 'DIFFICILE', lives: 2, foe: 1.35, boss: 1.3 }];
-const SAVE = (() => { try { return Object.assign({ max: 0, diff: 1, record: [] }, JSON.parse(localStorage.getItem('salvataggio') || '{}')); } catch (e) { return { max: 0, diff: 1, record: [] }; } })();
+const DIFFIC = [{ name: 'FACILE', lives: 5, hp: 3, foe: 0.6, boss: 0.6 }, { name: 'NORMALE', lives: 4, hp: 2, foe: 0.8, boss: 0.8 }, { name: 'ARCADE', lives: 3, hp: 1, foe: 1.1, boss: 1.1 }];
+const SAVE = (() => { try { return Object.assign({ max: 0, diff: 0, record: [] }, JSON.parse(localStorage.getItem('salvataggio') || '{}')); } catch (e) { return { max: 0, diff: 1, record: [] }; } })();
 function saveGame() { try { localStorage.setItem('salvataggio', JSON.stringify(SAVE)); } catch (e) {} }
 const DK = () => DIFFIC[SAVE.diff] || DIFFIC[1];
 /* Bruno joins in Florence, Alba on the Dolomites: once met, they stay in the roster */
@@ -1177,13 +1183,12 @@ function drawName() {
   ptxt('SU/GIU: LETTERA · DESTRA O FUOCO: AVANTI · SINISTRA: INDIETRO', W / 2, 600, 10, '#9fb4c8', 'center');
 }
 function drawRecords(x, y, w) {
-  if (!fxBox('ui_0', x - 24, y - 44, w + 48, 420)) panel(x, y, w, 300, '#ffc052');
-  ptitle('RECORD', x + w / 2, y - 34, 18, '#ffffff', '#ff5b4f');
+  drawBoard(x, y, w, 330, 'RECORD');
   const R = SAVE.record;
-  if (!R.length) ptxt('ANCORA NESSUNO!', x + w / 2, y + 100, 9, '#5a3a20', 'center', false);
+  if (!R.length) ptxt('ANCORA NESSUNO!', x + w / 2, y + 90, 10, '#ffe3a0', 'center');
   R.slice(0, 8).forEach((r, i) => {
-    ptxt(`${i + 1}. ${r.n}`, x + 30, y + 84 + i * 24, 9, '#3a2410', 'left', false);
-    ptxt(String(r.s), x + w - 30, y + 84 + i * 24, 9, '#6a2a10', 'right', false);
+    const yy = y + 60 + i * 34, col = i === 0 ? '#ffd35a' : '#fff0d0';
+    ptxt(`${i + 1}. ${r.n}`, x + 34, yy, 11, col); ptxt(String(r.s), x + w - 34, yy, 11, col, 'right');
   });
 }
 
@@ -1285,21 +1290,10 @@ function drawReveal() {
 /* ---------------- title and character select ---------------- */
 const tsel = { row: 0, mi: 0 };
 function tickTitle() {
+  if (mode === 'title') { titleMenuInput(); return; }
   for (const d of DEVICES) {
     const c = inputOf(d);
-    if (mode === 'title') {
-      const rows = SAVE.max > 0 ? 3 : 2;   // PLAY · (MISSION) · DIFFICULTY
-      if (c.pressed.u) { tsel.row = (tsel.row + rows - 1) % rows; Audio.sfx('select'); }
-      if (c.pressed.d) { tsel.row = (tsel.row + 1) % rows; Audio.sfx('select'); }
-      const what = tsel.row === 0 ? 'gioca' : rows === 3 && tsel.row === 1 ? 'missione' : 'diff';
-      const dx = c.pressed.r ? 1 : c.pressed.l ? -1 : 0;
-      if (dx && what === 'missione') { tsel.mi = clamp(tsel.mi + dx, 0, SAVE.max); Audio.sfx('select'); }
-      if (dx && what === 'diff') { SAVE.diff = clamp(SAVE.diff + dx, 0, 2); saveGame(); Audio.sfx('select'); }
-      if (c.pressed.fire || c.pressed.start || c.pressed.jump) {
-        mode = 'select';
-        sel = { slots: [{ dev: d, hero: 0, ready: false }] }; Audio.sfx('confirm'); return;
-      }
-    } else if (mode === 'select') {
+    if (mode === 'select') {
       let s = sel.slots.find((q) => q.dev === d);
       if (!s && sel.slots.length < 2 && (c.pressed.fire || c.pressed.jump)) { sel.slots.push({ dev: d, hero: 1, ready: false }); Audio.sfx('confirm'); continue; }
       if (!s) continue;
@@ -1308,6 +1302,7 @@ function tickTitle() {
         if (c.pressed.r) { s.hero = nextHero(s.hero, 1, tsel.mi); Audio.sfx('select'); }
         if (c.pressed.fire || c.pressed.jump) { s.ready = true; Audio.sfx('confirm'); }
       } else if (c.pressed.bomb) s.ready = false;
+      if (!s.ready && c.pressed.bomb && sel.slots.length === 1) { mode = 'title'; return; }
       if (c.pressed.start && sel.slots.every((q) => q.ready)) { S = null; startBrief(tsel.mi); return; }
     }
   }
@@ -1325,17 +1320,7 @@ function drawTitle() {
   if (IMG.scena_arrivo) { g.drawImage(IMG.scena_arrivo, 0, 0, W, H); g.fillStyle = mode === 'title' ? 'rgba(4,6,14,.55)' : 'rgba(4,6,14,.7)'; g.fillRect(0, 0, W, H); } else drawCityBack('roma', null, 0.55);
   drawGameName(IMG.logo ? 135 : 150, 1);
   if (mode === 'title') {
-    if (!IMG.scena_arrivo) ROSTER.forEach((R, i) => { if (!heroOpen(i, 0)) return; spr('arte', `${R.id}_${i % 2 ? R.F.w : R.F.i[Math.floor(T * 2.5 + i) % 2]}`, 250 + i * 150, 560, { scale: 0.95, sy: 1 + Math.sin(T * 5 + i) * 0.03 }); });
-    const rows = SAVE.max > 0 ? [['GIOCA', ''], ['MISSIONE', `${tsel.mi + 1} ${MISSIONS[tsel.mi].city}`], ['DIFFICOLTA', DK().name]] : [['GIOCA', ''], ['DIFFICOLTA', DK().name]];
-    panel(230, 290, 480, rows.length * 44 + 60, '#ffc052', 0.8);
-    rows.forEach(([a, b], i) => {
-      const y = 330 + i * 44, on = tsel.row === i;
-      ptitle(b ? `${a}: < ${b} >` : a, 470, y, on ? 20 : 15, '#ffffff', on ? '#ff5b4f' : '#56687a');
-    });
-    if (Math.floor(T * 2) % 2) ptxt('PREMI FUOCO', 470, 330 + rows.length * 44 + 4, 12, '#ffe3a0', 'center');
-    drawRecords(900, 300, 300);
-    ptxt('1P: FRECCE · J FUOCO · K SALTO · L GRANATA    2P: WASD · F FUOCO · G SALTO · H GRANATA    PAD: X FUOCO · A SALTO · B GRANATA', W / 2, 670, 8, '#9fb4c8', 'center');
-    ptxt('SU + FUOCO: SPARA IN ALTO · IN ARIA GIU + FUOCO: SPARA IN BASSO · GIU: ACCOVACCIATI · SALTA SULLA VESPONA PER SALIRCI', W / 2, 692, 8, '#9fb4c8', 'center');
+    drawTitleMenu();
     return;
   }
   // select
@@ -1361,7 +1346,7 @@ function drawEnd(win) {
   txt(win ? 'Animali e umani, seduti allo stesso tavolo. Fine... per ora!' : `I marziani hanno vinto a ${MISSIONS[MI].city}... per stavolta.`, W / 2, 180, 22, '#c8d6e4', 'center', 700);
   if (win && !IMG.scena_finale) ROSTER.forEach((R, i) => spr('arte', `${R.id}_${R.F.w}`, 170 + i * 150, 560, { scale: 0.85, sy: 1 + Math.sin(T * 6 + i) * 0.04 }));
   if (S) S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, win ? W / 2 : 420, win ? 600 + i * 24 : 250 + i * 30, 10, ROSTER[p.hero].color, 'center'));
-  if (!win) drawRecords(900, 280, 300);
+  if (!win) drawRecords(880, 300, 340);
   if (Math.floor(T * 2) % 2) ptxt(win ? 'PREMI FUOCO PER TORNARE AL TITOLO' : 'FUOCO: RIPROVA LA MISSIONE · START: TITOLO', W / 2, 660, 12, '#ffe3a0', 'center');
   for (const d of DEVICES) {
     const c = inputOf(d);
@@ -1382,6 +1367,7 @@ function frame(now) {
   } else if (mode === 'title' || mode === 'select') { if (Audio.ctx) Audio.playSong(0, 'titolo'); tickTitle(); if (mode === 'title' || mode === 'select') drawTitle(); drawFilm(); }
   else if (mode === 'brief') { tickBrief(dt); if (mode === 'brief') drawBrief(); drawFilm(); }
   else if (mode === 'reveal') { tickReveal(dt); if (mode === 'reveal') drawReveal(); drawFilm(); }
+  else if (MENUS[mode]) { MENUS[mode][0](); if (MENUS[mode]) MENUS[mode][1](); drawFilm(); }
   else if (mode === 'nome') { tickName(); if (mode === 'nome') drawName(); drawFilm(); }
   else { if (mode === 'end' && Audio.ctx) Audio.playSong(0, 'finale'); drawEnd(mode === 'end'); drawFilm(); }
   requestAnimationFrame(frame);
