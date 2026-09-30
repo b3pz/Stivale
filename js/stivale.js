@@ -64,6 +64,8 @@ const WTYPE = { f: 'fante', F: 'fante', b: 'bruto', d: 'drone', r: 'robo', u: 'u
 function loadLevel(mi) {
   LV = PIANTE[mi];
   ARENA_X = LV.arena; LEVEL_LEN = ARENA_X + W;
+  // every boss arena has two platforms to dodge on (unless the level already has its own)
+  if (!LV.plats.some((q) => q[0] + q[1] > LV.arena && q[0] < LV.arena + W)) LV.plats.push([LV.arena + 140, 250, 450], [LV.arena + W - 400, 250, 450]);
   PLATFORMS = LV.plats.map(([x, w, y, o]) => Object.assign([x, w, y], o || {}, { shake: 0, gone: false, goneT: 0 }));
   WAVES = LV.waves.map(([x, spec, lock]) => ({ x, lock: !!lock, spawn: [...spec].map((ch, i) => [WTYPE[ch], 60 + i * 110, ch === 'F' ? 400 : ch === 'd' ? rand(190, 280) : undefined]) }));
   CRATES = LV.crates; VEHICLE_X = LV.veh;
@@ -180,7 +182,7 @@ function onPlatform(x, y) { return PLATFORMS.some((P) => !P.gone && x > P[0] && 
 function pop(x, y, s, c = '#ffffff', big = 0) { S.pops.push({ x, y, s, c, big, t: 0 }); }
 function boom(x, y, r = 1) { S.fx.push({ k: 'boom', x, y, r, t: 0 }); S.shake = Math.max(S.shake, 8 * r); Audio.sfx('boom'); }
 function spark(x, y, c = '#ffe08a', n = 6) { S.fx.push({ k: 'hit', x, y, t: 0 }); for (let i = 0; i < n; i++) S.fx.push({ k: 'sp', x, y, vx: rand(-260, 260), vy: rand(-320, 40), c, t: 0, life: rand(0.2, 0.45) }); }
-function waterY() { return GROUND + 24 - (S.water ? S.water.h : 0) * 62; }
+function waterY() { return GROUND + 24 - (S.water ? S.water.h : 0) * 130; }
 function inWater(p) { return LV && LV.hazard === 'acqua' && S.water && S.water.h > 0.3 && p.y > waterY() - 2; }
 function alive() { return S.players.filter((p) => !p.out && !p.dead); }
 
@@ -196,8 +198,9 @@ function stepPlayer(p, c, dt) {
   const dx = (c.r ? 1 : 0) - (c.l ? 1 : 0);
   p.crouch = !!c.d && p.onGround;
   if (dx) p.face = dx;
-  const wet = inWater(p), sp = RUN * R.run * (p.crouch ? 0.45 : 1) * (wet ? 0.55 : 1);
-  if (LV.hazard === 'ghiaccio' && p.onGround) p.vx = (p.vx || 0) + (dx * sp - (p.vx || 0)) * Math.min(1, dt * 2.2);   // ice: you slide
+  const wet = inWater(p) && p.perk !== 'venezia', sp = RUN * R.run * (p.crouch ? 0.45 : 1) * (wet ? 0.55 : 1) * (p.perk === 'torino' ? 1.35 : 1) + (S.wind && p.onGround ? 0 : 0);
+  if (p.perk === 'torino') p.vx = (p.vx || 0);
+  if (LV.hazard === 'ghiaccio' && p.onGround && p.perk !== 'dolomiti') p.vx = (p.vx || 0) + (dx * sp - (p.vx || 0)) * Math.min(1, dt * 2.2);   // ice: you slide
   else p.vx = dx * sp;
   p.x += p.vx * dt;
   if (p.onGround) { const P = platAt(p.x, p.y); if (P && P.belt) p.x += P.belt * 120 * dt; }   // conveyor belts
@@ -212,7 +215,8 @@ function stepPlayer(p, c, dt) {
     p.dbl = true; p.vy = -JUMP_V * 0.82; Audio.sfx('jump'); spark(p.x, p.y, '#e8f4ff', 6);
   }
   p.dropT = Math.max(0, (p.dropT || 0) - dt);
-  p.vy += GRAV * dt; p.y += p.vy * dt;
+  p.vy += GRAV * dt; if (p.perk === 'firenze' && c.jump && p.vy > 160) p.vy = 160;   // the umbrella: glide
+  p.y += p.vy * dt;
   const fl = groundUnder(p.x, p.y - p.vy * dt, p.vy, p.dropT > 0);
   if (p.vy >= 0 && p.y >= fl) { if (!p.onGround && p.vy > 400) p.land = 0.1; p.y = fl; p.vy = 0; p.onGround = true; p.dbl = false; } else if (p.y < fl) p.onGround = p.onGround && p.y >= fl - 1;
   if (p.onGround && p.vy === 0 && !onPlatform(p.x, p.y) && p.y < GROUND - 1) p.onGround = false;   // walked off a ledge
@@ -227,6 +231,7 @@ function stepPlayer(p, c, dt) {
   if (!V.rider && !V.wreck && Math.abs(p.x - V.x) < 95 && ((p.y > GROUND - 40 && c.pressed.u) || (p.vy > 0 && p.y > V.y - 175 && p.y < V.y - 40))) mount(p);
 }
 function respawn(p) {
+  if (p.perk) pop(p.x, p.y - 150, 'BONUS PERSO', '#ff8a7a'); p.perk = null; p.shield = 0;
   p.hp = DK().hp; p.dead = false; p.st = 'drop'; p.t = 0; p.inv = 2.5; p.vy = 0; p.w = 'P'; p.ammo = Infinity; p.bombs = Math.max(p.bombs, 5);
   const others = alive().filter((q) => q !== p);
   p.x = others.length ? others[0].x - 40 : S.cam + 200; p.y = GROUND - 380;
@@ -539,7 +544,8 @@ function stepBoss(dt) {
   B.x = clamp(B.x, ARENA_X + 80, ARENA_X + W - 80);
   // contact
   const cw = D.cw || 90;
-  for (const p of alive()) if (Math.abs(p.x - B.x) < cw && p.y > B.y - D.ht * D.sc * 0.8 && p.y - 110 < B.y) kill(p);
+  // contact: the body, not the plume: a good jump clears it (or stand on the arena platforms)
+  for (const p of alive()) if (Math.abs(p.x - B.x) < cw * 0.85 && p.y > B.y - D.ht * D.sc * 0.5 && p.y - 110 < B.y) kill(p);
   if (S.veh.rider && Math.abs(S.veh.x - B.x) < cw + 50 && !D.fly) hurtVehicle();
 }
 function hurtBoss(dmg, by) {
@@ -560,6 +566,15 @@ function bossBox() {
 }
 
 /* ---------------- projectiles, bombs, items ---------------- */
+/* the city bonus: each one beats that city's trap */
+function perkBlocks(p, s) {
+  if (p.perk === 'roma' && (p.shield || 0) > 0 && s.k !== 'beam' && s.k !== 'tract') { p.shield--; pop(p.x, p.y - 170, p.shield ? 'SCUDO!' : 'SCUDO ROTTO!', '#ffd35a'); return true; }
+  if (p.perk === 'firenze' && s.k === 'vaso') return true;
+  if (p.perk === 'genova' && s.k === 'cassa') return true;
+  if (p.perk === 'dolomiti' && s.k === 'ball') return true;
+  if (p.perk === 'roma' && s.k === 'rocchio') return true;
+  return false;
+}
 function hitsPlayer(s, p) {
   const top = p.y - (p.crouch ? 70 : 115);
   if (s.k === 'tract') return s.t > 0.6 && s.life > 0.1 && Math.abs(p.x - s.x) < 40;
@@ -603,7 +618,7 @@ function stepShots(dt) {
       else if (s.k === 'snow' || s.k === 'gear') spark(s.x, GROUND, s.k === 'snow' ? '#ffffff' : '#c8d2dc', 8);
     }
     if (s.life <= 0) continue;
-    for (const p of alive()) if (p !== S.veh.rider && s.life > 0 && hitsPlayer(s, p)) { kill(p); if (!s.keep && s.k !== 'beam' && s.k !== 'tract') s.life = 0; }
+    for (const p of alive()) if (p !== S.veh.rider && s.life > 0 && hitsPlayer(s, p)) { if (perkBlocks(p, s)) { s.life = 0; spark(s.x, s.y, '#ffe08a', 8); Audio.sfx('boing'); continue; } kill(p); if (!s.keep && s.k !== 'beam' && s.k !== 'tract') s.life = 0; }
     if (S.veh.rider && s.life > 0) {
       const V = S.veh, vp = { x: V.x, y: V.y, crouch: false };
       if (s.k === 'beam' || s.k === 'tract' ? hitsPlayer(s, vp) : Math.abs(s.x - V.x) < 100 + (s.r || 0) && s.y > V.y - 170 && s.y < V.y) { hurtVehicle(); if (s.k !== 'beam' && s.k !== 'ball' && s.k !== 'tract') s.life = 0; }
@@ -630,6 +645,7 @@ function stepShots(dt) {
     for (const p of alive()) if (!it.got && Math.abs(p.x - it.x) < 50 && Math.abs(p.y - it.y) < 80) {
       it.got = true; Audio.sfx('pickup');
       if (it.k === 'cibo') EX.eat(p, it);
+      else if (it.k === 'perk') EX.takePerk(p, it);
       else if (it.k === 'bomb') { p.bombs += 5; pop(it.x, it.y - 90, 'GRANATE +5', '#ffd35a'); }
       else { p.w = it.k; p.ammo = WEAPONS[it.k].ammo; pop(it.x, it.y - 90, WEAPONS[it.k].name + '!', WCOL[it.k], 1); Audio.sfx('reload'); }
     }
@@ -704,7 +720,19 @@ function stepHazard(dt) {
     const Wt = S.water || (S.water = { h: 0, t: 0 }); Wt.t += dt;
     const c = Wt.t % 17;
     if (c > 9 && c - dt <= 9) { pop(S.cam + W / 2, 200, 'ACQUA ALTA!', '#7ec8ff', 1); Audio.sfx('siren'); }
-    Wt.h += ((c > 10.5 && c < 15 ? 1 : 0) - Wt.h) * Math.min(1, dt * 1.5);
+    Wt.h += ((c > 10.5 && c < 15 ? 1 : 0) - Wt.h) * Math.min(1, dt * 1.2);
+    // deep water: hold your breath, then you swallow a mouthful (a heart). Get on a pier!
+    for (const p of alive()) {
+      const deep = Wt.h > 0.6 && p.y > waterY() + 40 && p.perk !== 'venezia' && p !== S.veh.rider;
+      p.air = deep ? (p.air ?? 1.6) - dt : Math.min(1.6, (p.air ?? 1.6) + dt * 2);
+      if (deep && Math.random() < dt * 6) S.fx.push({ k: 'sp', x: p.x + rand(-10, 10), y: p.y - 100, vx: 0, vy: -120, c: '#dff4ff', t: 0, life: 0.5 });
+      if (p.air <= 0) { p.air = 1.6; const was = p.hp; kill(p); if (!p.dead) { p.vy = -900; p.onGround = false; } pop(p.x, p.y - 170, 'GLU GLU!', '#7ec8ff'); }
+    }
+  }
+  if ((hz === 'vento' || LV.hazard2 === 'vento') && !S.boss && !S.win) {   // the Strait: gusts of wind push you back (watch the flags)
+    S.wT = (S.wT ?? 7) - dt;
+    if (S.wT <= 0 && !S.wind) { S.wind = 2.6; S.wT = rand(7, 10); pop(S.cam + W / 2, 200, 'VENTO DI SCIROCCO!', '#bff4ff', 1); Audio.sfx('wind'); }
+    if (S.wind > 0) { S.wind -= dt; for (const p of alive()) if (p.perk !== 'stretto' && p !== S.veh.rider) p.x -= (p.onGround ? 150 : 210) * dt * (S.wind > 2.2 ? (2.6 - S.wind) / 0.4 : 1); for (let i = 0; i < 2; i++) S.fx.push({ k: 'sp', x: S.cam + W + 10, y: rand(100, 640), vx: -900, vy: 0, c: 'rgba(230,245,255,.8)', t: 0, life: 1.4 }); if (S.wind <= 0) S.wind = 0; }
   }
   if (S.win) return;
   if (hz === 'vasi' && !S.boss) {   // Florence: flower pots from the windows (watch the shadow)
@@ -715,11 +743,19 @@ function stepHazard(dt) {
     S.hzT = (S.hzT ?? 3) - dt;
     if (S.hzT <= 0) { S.hzT = rand(3.5, 5.5); const P = pick(alive()); if (P) { const x = clamp(P.x + rand(-160, 160), S.cam + 80, S.cam + W - 80); S.fx.push({ k: 'mark', x, t: 0 }); S.foeShots.push({ id: nid(), k: 'cassa', x, y: -160, vx: 0, vy: 700, g: 0, life: 3, r: 34, keep: true }); Audio.sfx('wind'); } }
   }
+  if (hz === 'colonne' && !S.boss) {   // Rome: pieces of old columns fall off the ruins (watch the shadow)
+    S.hzT = (S.hzT ?? 4) - dt;
+    if (S.hzT <= 0) { S.hzT = rand(3.5, 5.5); const P = pick(alive()); if (P) { const x = P.x + rand(-120, 160); S.fx.push({ k: 'mark', x, t: 0 }); S.foeShots.push({ id: nid(), k: 'rocchio', x, y: -140, vx: 0, vy: 760, g: 0, life: 3, r: 26, shootable: true, spin: 0 }); } }
+  }
+  if (hz === 'ghiaccio' && !S.boss) {   // the Dolomites: snowballs rolling down the slope (jump them)
+    S.hzT = (S.hzT ?? 6) - dt;
+    if (S.hzT <= 0 && S.lock === null) { S.hzT = rand(6, 9); S.foeShots.push({ id: nid(), k: 'ball', x: S.cam + W + 60, y: GROUND - 44, vx: -360, vy: 0, g: 0, life: 6, r: 40, keep: true, spin: 0 }); pop(S.cam + W - 200, 220, 'VALANGA!', '#ffffff', 1); Audio.sfx('heavy'); }
+  }
   if (hz === 'lava') {   // Etna: lava jets from the floor, they bubble before they blow
     (LV.geysers || []).forEach((gx, i) => {
       if (gx < S.cam - 100 || gx > S.cam + W + 100) return;
       const c = (S.t + i * 1.3) % 4.5;
-      if (c > 3.5) for (const p of alive()) if (Math.abs(p.x - gx) < 38 && p.y > GROUND - 330) kill(p);
+      if (c > 3.5) for (const p of alive()) if (Math.abs(p.x - gx) < 38 && p.y > GROUND - 330 && p.perk !== 'etna') kill(p);
       if (c > 3.5 && c - dt <= 3.5) { Audio.sfx('boom'); S.shake = Math.max(S.shake, 5); }
     });
   }
@@ -803,7 +839,8 @@ function drawPiatt(city, x, pw, py) {
   const A = window.ATLAS.piatt, img = IMG.piatt, slab = A[`${city}_${pw < 300 && A[`${city}_corta`] ? 'corta' : 'lunga'}`], pole = A[`${city}_palo`];
   if (pole && GROUND - py > 4) {
     const [sx, sy, sw, sh] = pole, w = sw * POLE_S, need = GROUND - py;
-    for (const cx of [x + 26 + w / 2, x + pw - 26 - w / 2]) {
+    const pl = slab[6] ?? 0.08, pr = slab[7] ?? 0.92;   // under the slab's own end posts
+    for (const cx of [x + Math.max(pl * slab[2] * SLAB_SY, w / 2), x + pw - Math.max((1 - pr) * slab[2] * SLAB_SY, w / 2)]) {
       // the foot of the pole stands on the street; if the pole is too short it is stretched, if too long its top is hidden
       const nat = sh * POLE_S;
       if (nat >= need) { const cut = need / POLE_S; g.drawImage(img, sx, sy + sh - cut, sw, cut, cx - w / 2, py, w, need); }
@@ -905,6 +942,7 @@ function fxShot(k, s, w, nat = -1, opt = {}) {
 }
 const ESPR = { ray: ['en_0', 58], orb: ['en_1', 58], spark: ['en_2', 50], shout: ['en_3', 52, 1], dbomb: ['en_4', 38, 0], gear: ['en_6', 50, 1], snow: ['en_7', 46], ball: ['en_8', 124, -1], torp: ['en_9', 92], drop: ['en_10', 42], crys: ['en_11', 56], cball: ['en_12', 42, 1], spear: ['en_0', 58] };
 function drawFoeShotFx(s) {
+  if (s.k === 'rocchio') { const f = window.ATLAS.piatt && window.ATLAS.piatt.roma_deco; if (f && IMG.piatt) { spr('piatt', 'roma_deco', s.x, s.y + 30, { scale: 70 / f[2], rot: s.spin * 0.3 }); return true; } return false; }
   if (s.k === 'vaso') { const f = window.ATLAS.piatt && window.ATLAS.piatt.firenze_deco; if (f && IMG.piatt) { spr('piatt', 'firenze_deco', s.x, s.y + 24, { scale: 64 / f[2], rot: Math.sin(S.t * 8) * 0.3 }); return true; } return false; }
   if (s.k === 'cassa') { g.strokeStyle = '#3a2410'; g.lineWidth = 3; g.beginPath(); g.moveTo(s.x, s.y - 500); g.lineTo(s.x, s.y - 30); g.stroke(); return fxs('obj_6', s.x, s.y + 34, 92); }
   if (s.k === 'shield') return fxs('en_5', s.x, s.y, 100, { sx: Math.cos(s.spin) * 0.5 + 0.6, rot: s.spin * 0.2 });
@@ -1024,13 +1062,19 @@ function draw() {
   for (const it of S.items) {
     const b = Math.sin(T * 6) * 4;
     if (it.k === 'cibo') { EX.drawFood(it, b); continue; }
+    if (it.k === 'perk') { EX.drawPerk(it, b); continue; }
     if (fxs(it.k === 'bomb' ? 'obj_4' : `obj_${'HSFR'.indexOf(it.k)}`, it.x, it.y + b, 78)) { if (it.k !== 'bomb') ptitle(it.k, it.x + 34, it.y - 50 + b, 16, '#ffffff', WCOL[it.k]); continue; }
     if (it.k === 'bomb') { g.fillStyle = '#3a4a2a'; g.beginPath(); g.arc(it.x, it.y - 22 + b, 16, 0, 7); g.fill(); ptxt('B', it.x, it.y - 16 + b, 12, '#ffd35a', 'center'); }
     else { g.fillStyle = '#10141c'; g.fillRect(it.x - 22, it.y - 48 + b, 44, 44); g.strokeStyle = WCOL[it.k]; g.lineWidth = 3; g.strokeRect(it.x - 22, it.y - 48 + b, 44, 44); ptitle(it.k, it.x, it.y - 14 + b, 24, '#ffffff', WCOL[it.k]); }
   }
   // the Vespona: vesp 0 ferma · 1-2 corre · 3 spara · 4 salta · 5 ammaccata
   const V = S.veh;
-  if (EX.drawVehicle(V)) {} else if (!V.wreck) {
+  const remoRide = V.rider && V.rider.hero === 0 && (!V.kind || V.kind === 'vespa') && FXF('rv_0');
+  if (EX.drawVehicle(V)) {} else if (remoRide) {
+    // Remo's own drawings on the scooter: rv 0 fermo · 1-2 corre · 3 spara · 4-5 salta · 6 bomba · 7 colpito
+    const f = V.flash > 0.3 ? 7 : V.roarCd > 4.6 ? 6 : V.shotT > 0 ? 3 : V.y < GROUND - 2 ? 4 + Math.floor(T * 6) % 2 : V.st === 'walk' ? 1 + Math.floor(T * 8) % 2 : 0;
+    fxs(`rv_${f}`, V.x, V.y + 4 - (V.st === 'walk' ? Math.abs(Math.sin(T * 16)) * 3 : 0), 250, { face: V.face, flash: V.flash > 0 && Math.floor(T * 20) % 2 ? 0.7 : 0 });
+  } else if (!V.wreck) {
     const f = V.rider ? (V.shotT > 0 ? 3 : V.y < GROUND - 2 ? 4 : V.st === 'walk' ? 1 + Math.floor(T * 8) % 2 : 0) : 0;
     const vy = V.y - (V.rider && V.st === 'walk' ? Math.abs(Math.sin(T * 16)) * 3 : 0);
     spr('arte', `vesp_${f}`, V.x, vy, { scale: 1.0, face: V.face, flash: V.flash > 0 && Math.floor(T * 20) % 2 ? 0.7 : 0 });
@@ -1050,7 +1094,7 @@ function draw() {
   // enemies
   for (const e of S.enemies) {
     if (e.st === 'dead' && e.t > 0.9 && Math.floor(T * 16) % 2) continue;
-    if (e.mirage) { g.save(); g.globalAlpha = 0.42 + Math.sin(T * 6 + e.id) * 0.16; drawEnemy(e); g.restore(); } else drawEnemy(e);
+    if (e.mirage) { const see = S.players.some((p) => p.perk === 'stretto'); g.save(); g.globalAlpha = see ? 0.18 : 0.42 + Math.sin(T * 6 + e.id) * 0.16; drawEnemy(e); g.restore(); } else drawEnemy(e);
   }
   drawBoss();
   // players
@@ -1136,7 +1180,7 @@ function drawHUD() {
   else if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; const rib = fxBox('ui_5', W / 2 - 400, 206, 800, 170); ptitle(S.banner.a, W / 2, rib ? 290 : 300, rib ? 32 : 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, rib ? 406 : 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.17', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.18', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- save, difficulty, records ---------------- */

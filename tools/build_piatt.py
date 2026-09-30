@@ -31,6 +31,7 @@ def top_row(p):
     frac = a.mean(1)
     return int(np.argmax(frac > 0.75))   # the first row that is (almost) all stone: the floor you walk on
 
+POSTS = {}
 frames = []
 for fn in sorted(glob.glob(os.path.join(ROOT, 'assets', 'source', 'piatt_*.png'))):
     city = os.path.basename(fn)[6:-4]
@@ -44,8 +45,13 @@ for fn in sorted(glob.glob(os.path.join(ROOT, 'assets', 'source', 'piatt_*.png')
         if name in ('lunga', 'corta'): ax, ay = 0, top * k
         else: ax, ay = q.width / 2, q.height
         frames.append((f'{city}_{name}', q, ax, ay))
+        if name in ('lunga', 'corta'):   # where the slab's own end posts/legs are: the poles go right under them
+            a = np.array(p)[..., 3] > 20; h = a.shape[0]
+            band = a[int(h * 0.8):].any(0); xs = np.nonzero(band)[0]
+            if len(xs): POSTS[f'{city}_{name}'] = [round(xs[:max(1, len(xs) // 8)].mean() / a.shape[1], 3), round(xs[-max(1, len(xs) // 8):].mean() / a.shape[1], 3)]
     print(city, [p.size for p in ps])
 atlas, meta = pack(frames)
+for k, v in POSTS.items(): meta[k] = list(meta[k]) + v
 atlas.save(os.path.join(ROOT, 'assets', 'sprites', 'piatt.png'), optimize=True)
 open(os.path.join(ROOT, 'js', 'piatt.js'), 'w').write('// generato da tools/build_piatt.py\nwindow.ATLAS = window.ATLAS || {}; window.ATLAS.piatt = ' + json.dumps(meta, separators=(',', ':')) + ';\n')
 print('piatt', atlas.size, json.dumps(meta))

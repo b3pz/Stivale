@@ -64,7 +64,7 @@ function menuNav(sel, n) {   // shared navigation for every menu: returns {sel, 
 }
 
 /* ---------- title menu ---------- */
-function titleRows() { return [['gioca', 'GIOCA'], ...(SAVE.max > 0 ? [['missione', '']] : []), ...(SAVE.won ? [['extra', 'EXTRA']] : []), ['come', 'COME SI GIOCA'], ['record', 'RECORD'], ['trofei', 'TROFEI'], ['opzioni', 'OPZIONI']]; }
+function titleRows() { return [['gioca', 'GIOCA'], ...(SAVE.max > 0 ? [['missione', '']] : []), ...(SAVE.won ? [['extra', 'EXTRA']] : []), ['online', 'COOP ONLINE'], ['come', 'COME SI GIOCA'], ['record', 'RECORD'], ['trofei', 'TROFEI'], ['opzioni', 'OPZIONI']]; }
 function titleMenuInput() {
   const rows = titleRows(); tsel.row = Math.min(tsel.row, rows.length - 1);
   const n = menuNav(tsel.row, rows.length); tsel.row = n.sel;
@@ -77,6 +77,7 @@ function titleMenuInput() {
   else if (what === 'record') mode = 'record';
   else if (what === 'trofei') mode = 'trofei';
   else if (what === 'extra') mode = 'extra';
+  else if (what === 'online') { mode = 'online'; onl.sel = 0; }
   else { mode = 'opzioni'; menuS.opt = 0; menuS.back = 'title'; }
 }
 function drawTitleMenu() {
@@ -85,7 +86,7 @@ function drawTitleMenu() {
   g.fillStyle = gr; g.fillRect(W / 2 - 380, 260, 760, rows.length * 50 + 50);
   rows.forEach(([k, label], i) => {
     const text = k === 'missione' ? `< MISSIONE ${tsel.mi + 1}: ${MISSIONS[tsel.mi].city} >` : label;
-    menuItem(text, W / 2, 310 + i * 50, tsel.row === i, 20);
+    menuItem(text, W / 2, 300 + i * 46, tsel.row === i, 19);
   });
   ptxt('FRECCE O LEVETTA: SCEGLI · FUOCO: CONFERMA · GRANATA: INDIETRO', W / 2, 690, 9, '#e8d8b8', 'center');
 }
@@ -134,8 +135,9 @@ function drawCome() {
       [() => spr('arte', 'leg_0', L + 40, 465, { scale: 0.42 }), 'Legionario: carica a testa bassa. Salta o lanciagli una granata.'],
     ];
     R.forEach(([ic, t], i) => { ic(); txt(t, L + 110, 262 + i * 62, 17, ink, 'left', 700); });
-    txt('Trappole: Venezia acqua alta · Firenze vasi dalle finestre · Torino nastri trasportatori · Genova casse dalle gru', W / 2, 540, 16, dim, 'center', 700);
-    txt('Dolomiti ghiaccio · Stretto nemici-miraggio · Etna passerelle che crollano e lava (guarda le ombre e le bolle!)', W / 2, 566, 16, dim, 'center', 700);
+    txt('Trappole: Roma colonne che cadono · Venezia acqua alta (sali sui pontili o affoghi!) · Firenze vasi', W / 2, 520, 16, dim, 'center', 700);
+    txt('Torino nastri · Genova casse dalle gru · Dolomiti ghiaccio e valanghe · Stretto miraggi e vento · Etna lava', W / 2, 546, 16, dim, 'center', 700);
+    txt('In ogni città c\'è un BONUS dorato su una piattaforma: ti protegge dalla trappola di quella città.', W / 2, 580, 16, '#ffd35a', 'center', 700);
   }
   ptxt(`< ${P + 1} / 3 >   SINISTRA/DESTRA: PAGINA · GRANATA: INDIETRO`, W / 2, 628, 9, '#ffe3a0', 'center');
 }

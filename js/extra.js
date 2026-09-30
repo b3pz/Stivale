@@ -427,6 +427,7 @@ function drawCard() {
   txt(M.city, W / 2, 350, 72, '#f6eedc', 'center', 800);
   txt(M.place, W / 2, 410, 26, '#c8bca0', 'center', 700);
   txt(`...${CARD_SUB[M.bg]}.`, W / 2, 490, 22, '#a89c80', 'center', 600);
+  if (typeof RENDERING !== 'undefined' && RENDERING) return;
   if ((CARD.t > 2.6 || (CARD.t > 0.5 && briefPress())) && !IRIS) { CARD = null; mode = 'play'; irisOpen(...heroScreen()); }
 }
 
@@ -467,6 +468,33 @@ function drawTouch() {
   g.restore();
 }
 
+/* ---------------- the city bonus (one per level, beats that city's trap) ---------------- */
+const PERKS = {
+  roma: ['SCUDO DEL LEGIONARIO', 'PARA 3 COLPI E I PEZZI DI COLONNA', 'tro_10'],
+  venezia: ['PINNE DA GONDOLIERE', 'NON AFFOGHI E CORRI NELL\'ACQUA', 'tro_1'],
+  firenze: ['OMBRELLO FIORENTINO', 'I VASI RIMBALZANO · TIENI SALTO PER PLANARE', 'tro_0'],
+  torino: ['SCARPE TURBO', 'CORRI PIU VELOCE', 'tro_9'],
+  genova: ['ELMETTO DA PORTUALE', 'LE CASSE DELLE GRU NON TI FANNO NIENTE', 'tro_9'],
+  dolomiti: ['SCARPONI CHIODATI', 'NON SCIVOLI E LE PALLE DI NEVE RIMBALZANO', 'tro_5'],
+  stretto: ['OCCHIALI DEL GUFO', 'VEDI I MIRAGGI E IL VENTO NON TI SPOSTA', 'tro_6'],
+  etna: ['TUTA IGNIFUGA', 'LA LAVA NON TI BRUCIA', 'tro_2'],
+};
+function placePerk() {
+  const P = PLATFORMS.filter((q) => !q.fall && q[0] > ARENA_X * 0.3 && q[0] < ARENA_X * 0.7).sort((a, b) => a[2] - b[2])[0] || PLATFORMS[Math.floor(PLATFORMS.length / 2)];
+  if (P) S.items.push({ id: nid(), x: P[0] + P[1] / 2, y: P[2] - 30, vy: 0, k: 'perk', fixed: true });
+}
+EX.drawPerk = (it, b) => {
+  const [, , ic] = PERKS[CITY()] || PERKS.roma, y = it.y - 50 + b * 2, r = 40 + Math.sin(T * 5) * 3;
+  g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,220,120,.35)'; g.beginPath(); g.arc(it.x, y, r + 16, 0, 7); g.fill(); g.restore();
+  if (!fxs(ic, it.x, y + 34, 76)) { g.fillStyle = '#e0a848'; g.beginPath(); g.arc(it.x, y, r, 0, 7); g.fill(); }
+  ptxt('BONUS', it.x, y - 54, 9, '#ffd35a', 'center');
+};
+EX.takePerk = (p, it) => {
+  const [name, desc] = PERKS[CITY()] || PERKS.roma;
+  p.perk = CITY(); if (p.perk === 'roma') p.shield = 3;
+  pop(it.x, it.y - 120, name + '!', '#ffd35a', 1); pop(it.x, it.y - 80, desc, '#fff0d0'); Audio.sfx('fanfara');
+};
+
 /* ---------------- hooks into the game ---------------- */
 const _newGame = newGame;
 newGame = function (players, mi = 0, keep = null) {
@@ -474,6 +502,7 @@ newGame = function (players, mi = 0, keep = null) {
   S.banner = null; S.hurts = 0; S.freeze = 0;
   const kind = RMODE.rush ? 'vespa' : CITY_VEH[CITY()] || 'vespa';
   Object.assign(S.veh, { kind, hp: VK[kind].hp, max: VK[kind].hp });
+  placePerk();
   // food: two plates on the platforms
   const P = PLATFORMS; if (P.length > 3) for (const q of [P[2], P[P.length - 3]]) S.items.push({ id: nid(), x: q[0] + q[1] / 2, y: q[2] - 40, vy: 0, k: 'cibo', c: Math.floor(Math.random() * 8) });
   // the mini-boss joins the arena closest to the middle of the level
@@ -558,6 +587,8 @@ drawHUD = function () {
   _drawHUD();
   if (S.mini && S.mini.hp > 0 && !S.boss) { panel(W / 2 - 220, H - 56, 440, 40, '#ff8a3a'); ptxt(MINI_NAMES[S.mini.mi], W / 2 - 204, H - 38, 9, '#ffe0a0'); bar(W / 2 - 204, H - 30, 408, 8, S.mini.hp / S.mini.max, '#ff8a3a'); }
   if (RMODE.rush) ptxt(`TEMPO ${fmtTime(RMODE.t)}`, W / 2, 80, 12, '#ffd35a', 'center');
+  S.players.forEach((p, i) => { if (p.perk && !p.out) ptxt(PERKS[p.perk][0] + (p.perk === 'roma' ? ` ${p.shield || 0}` : ''), i ? W - 160 : 160, 120, 8, '#ffd35a', 'center'); });
+  if (S.water && S.water.h > 0.6) S.players.forEach((p) => { if (p.air < 1.55 && !p.dead) { const x = p.x - S.cam; g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(x - 30, p.y - 200, 60, 8); g.fillStyle = '#7ec8ff'; g.fillRect(x - 30, p.y - 200, 60 * p.air / 1.6, 8); } });
   if (S.win) drawGrade();
 };
 const _draw = draw;
@@ -568,7 +599,7 @@ draw = function () {
 EX.drawFxExtra = () => { for (const f of S.fx) { if (f.k === 'ono') drawOno(f); else if (f.k === 'casco') drawHelmet(f); } };
 EX.overlay = (dt) => {
   if (mode === 'cartello') { if (!CARD) CARD = { t: 0 }; drawCard(); }
-  drawIris(dt);
+  if (mode !== 'netclient') drawIris(dt);
   if (TPOP) { TPOP.t += dt; const a = clamp(Math.min(TPOP.t * 4, (4 - TPOP.t) * 2), 0, 1); g.save(); g.globalAlpha = a; drawBoard(W / 2 - 260, 150, 520, 100); drawMedal(TPOP.i, W / 2 - 200, 190, 50, true); ptxt('TROFEO!', W / 2 - 150, 186, 10, '#ffd35a'); ptxt(TROFEI[TPOP.i][0], W / 2 - 150, 216, 12, '#ffffff'); g.restore(); if (TPOP.t > 4) TPOP = null; }
   drawTouch();
   if (mode === 'title' && (RMODE.rush || RMODE.arcade)) endRunModes();

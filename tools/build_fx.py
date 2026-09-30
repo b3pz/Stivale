@@ -14,8 +14,8 @@ from scipy import ndimage
 from pack import pack
 from segment import ROOT
 
-SHEETS = [('teste', 'testa', 1, 3), ('cibo', 'cibo', 2, 4), ('nemici_citta', 'nc', 2, 4), ('veicoli', 've', 2, 4), ('miniboss', 'mb', 2, 4), ('onomatopee', 'ono', 2, 4), ('trofei', 'tro', 3, 4), ('oggetti', 'obj', 2, 4), ('colpi_eroi', 'he', 2, 4), ('colpi_nemici', 'en', 4, 4), ('effetti', 'ef', 2, 4), ('interfaccia', 'ui', 2, 4), ('ritratti', 'rit', 2, 4)]
-BOTTOM = {'obj', 'cibo', 'nc', 've', 'mb', 'en_13', 'en_14', 'en_15', 'ef_4'}   # these stand on the ground: anchor at the bottom
+SHEETS = [('teste', 'testa', 1, 3), ('remo_vespa', 'rv', 3, 4), ('cibo', 'cibo', 2, 4), ('nemici_citta', 'nc', 2, 4), ('veicoli', 've', 2, 4), ('miniboss', 'mb', 2, 4), ('onomatopee', 'ono', 2, 4), ('trofei', 'tro', 3, 4), ('oggetti', 'obj', 2, 4), ('colpi_eroi', 'he', 2, 4), ('colpi_nemici', 'en', 4, 4), ('effetti', 'ef', 2, 4), ('interfaccia', 'ui', 2, 4), ('ritratti', 'rit', 2, 4)]
+BOTTOM = {'obj', 'cibo', 'nc', 've', 'mb', 'rv', 'en_13', 'en_14', 'en_15', 'ef_4'}   # these stand on the ground: anchor at the bottom
 K = 0.5
 frames = []
 for fn, key, rows, cols in SHEETS:
@@ -32,7 +32,7 @@ for fn, key, rows, cols in SHEETS:
         cell = (min(rows - 1, int(cy // ch)), min(cols - 1, int(cx // cw)))
         b = boxes.get(cell)
         boxes[cell] = (min(b[0], ys.start), min(b[1], xs.start), max(b[2], ys.stop), max(b[3], xs.stop)) if b else (ys.start, xs.start, ys.stop, xs.stop)
-    if key == 'rit':   # portraits touch each other: plain grid cells, each cropped to what it holds
+    if key in ('rit', 'tro'):   # portraits touch each other: plain grid cells, each cropped to what it holds
         boxes = {}
         for r in range(rows):
             for c in range(cols):

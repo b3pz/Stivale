@@ -1,4 +1,4 @@
-# MAMMA MIA, I MARZIANI! — prova 0.17
+# MAMMA MIA, I MARZIANI! — prova 0.18
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.
@@ -31,6 +31,12 @@ Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`
   8. Il Comandante: tutto quanto… e poi il casco si apre.
 - Ogni città ha il suo fondale, le sue piattaforme disegnate e i suoi oggetti di scena (capitello, gondola, vaso, auto, bitta, pupazzo di neve, palma, tubo).
 - Casse delle armi, granate, barili, colpi, esplosioni, cornici del punteggio e barra del boss: tutto disegnato (blocco 8).
+- **Trappola di ogni città**: Roma colonne che cadono · Venezia acqua alta (sotto l'acqua trattieni il fiato: sali sui pontili o affoghi) ·
+  Firenze vasi · Torino nastri · Genova casse dalle gru · Dolomiti ghiaccio e valanghe · Stretto miraggi e vento · Etna lava e passerelle.
+- **Bonus di ogni città** (medaglia dorata su una piattaforma): scudo (Roma), pinne (Venezia), ombrello per planare (Firenze), scarpe turbo (Torino),
+  elmetto (Genova), scarponi chiodati (Dolomiti), occhiali del Gufo (Stretto), tuta ignifuga (Etna). Si perde perdendo una vita.
+- **Arene dei boss** con due piattaforme; il contatto col boss è più giusto: un buon salto lo evita.
+- **Coop online**: dal titolo COOP ONLINE → uno crea la stanza e legge il codice, l'altro entra con il codice. Serve Internet.
 - **Cartone anni '30**: intro a cinegiornale, cartello da film muto prima di ogni missione, transizioni a iride,
   onomatopee (BANG! BOOM! BONK!), fermo-immagine sui colpi forti, caschi che volano.
 - **Cibo** (pizza, cannolo, arancino, gelato…): ridà un cuore. Sulle piattaforme e a volte nelle casse.
@@ -59,7 +65,6 @@ Online: https://b3pz.github.io/Stivale/ (il repository si chiama ancora Stivale)
 - I cuori dipendono dalla difficoltà. I boss si colpiscono meglio quando sono stanchi (le stelline sopra la testa).
 
 ## Grafica
-Tutta disegnata. Da `MAMMA_MIA_kit_immagini_2.zip` arrivano (facoltativi, finché mancano ci sono segnaposto):
-cibo, nemici delle città, veicoli, mini-boss, onomatopee, trofei. Vanno in `assets/source/` e poi `tools/build_fx.py`.
+Tutta disegnata: anche cibo, nemici delle città, veicoli, mini-boss, onomatopee, trofei e Remo in Vespa.
 
 Il vecchio prototipo con i personaggi di Primal Sentinels è in `assalto/`.
