@@ -1,4 +1,4 @@
-# MAMMA MIA, I MARZIANI! — prova 0.14
+# MAMMA MIA, I MARZIANI! — prova 0.15
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.
@@ -47,9 +47,7 @@ Online: https://b3pz.github.io/Stivale/ (il repository si chiama ancora Stivale)
 - Giù + salto su una lastra: scendi.
 - Un colpo e sei fuori, 3 vite. I boss si colpiscono meglio quando sono stanchi (le stelline sopra la testa).
 
-## Grafica che manca ancora (facoltativa: il gioco funziona anche senza)
-Il kit con prompt e immagini da allegare è `MAMMA_MIA_kit_immagini.zip`.
-- `logo.png` o `stemma.png` → `assets/ui/` · le scene → `assets/scene/scena_arrivo.jpg`, `scena_rivelazione.jpg`, `scena_finale.jpg`
-- `teste.png` (icone di Nina, Bruno, Alba). I ritratti ci sono già.
+## Grafica
+Tutta disegnata: logo, scene d'apertura, rivelazione e finale, ritratti, teste nel punteggio.
 
 Il vecchio prototipo con i personaggi di Primal Sentinels è in `assalto/`.

@@ -1092,7 +1092,8 @@ function draw() {
 function hudFx(p, i) {
   const x = i ? W - 310 : 10, col = ROSTER[p.hero].color, ink = '#3a2410';
   fxBox('ui_0', x, 4, 300, 104);
-  const face = fxs(`rit_${p.hero}`, x + 24, 58, 62), o = face ? 26 : 0;
+  const head = p.hero === 0 ? 'ui_3' : `testa_${p.hero - 1}`;
+  const face = fxs(FXF(head) ? head : `rit_${p.hero}`, x + 26, 58, 60), o = face ? 26 : 0;
   ptxt(`${i + 1}P ${ROSTER[p.hero].name}`, x + 36 + o, 44, 11, col);
   ptxt(String(p.score).padStart(7, '0'), x + 266, 44, 11, ink, 'right', false);
   if (p.out) { if (Math.floor(T * 2) % 2) ptxt('FUOCO PER CONTINUARE', x + 36 + o, 74, 9, ink, 'left', false); return; }
@@ -1126,7 +1127,7 @@ function drawHUD() {
   else if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; const rib = fxBox('ui_5', W / 2 - 400, 206, 800, 170); ptitle(S.banner.a, W / 2, rib ? 290 : 300, rib ? 32 : 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, rib ? 406 : 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.14', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.15', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- save, difficulty, records ---------------- */
@@ -1315,23 +1316,24 @@ function tickTitle() {
   if (mode === 'select' && sel.go && !sel.slots.every((q) => q.ready)) sel.go = null;
 }
 function drawGameName(y, big) {
-  if (IMG.logo) { const s = Math.min(560 / IMG.logo.width, 300 / IMG.logo.height) * big; g.drawImage(IMG.logo, W / 2 - IMG.logo.width * s / 2, y - IMG.logo.height * s * 0.55, IMG.logo.width * s, IMG.logo.height * s); return; }
+  if (IMG.logo) { const s = Math.min(520 / IMG.logo.width, 250 / IMG.logo.height) * big, lw = IMG.logo.width * s, lh = IMG.logo.height * s; g.drawImage(IMG.logo, W / 2 - lw / 2, y - lh / 2, lw, lh); return; }
   if (IMG.stemma) { const s = Math.min(560 / IMG.stemma.width, 300 / IMG.stemma.height) * big; g.drawImage(IMG.stemma, W / 2 - IMG.stemma.width * s / 2, y - IMG.stemma.height * s * 0.55, IMG.stemma.width * s, IMG.stemma.height * s); }
   ptitle(GAME_NAME[0], W / 2, y - 44 * big, 34 * big, '#fff6d6', '#e8483a');
   ptitle(GAME_NAME[1], W / 2, y + 30 * big, 66 * big, '#fff6d6', '#e8483a');
 }
 function drawTitle() {
-  if (IMG.scena_arrivo) { g.drawImage(IMG.scena_arrivo, 0, 0, W, H); g.fillStyle = 'rgba(4,6,14,.45)'; g.fillRect(0, 0, W, H); } else drawCityBack('roma', null, 0.55);
-  drawGameName(150, 1);
+  if (IMG.scena_arrivo) { g.drawImage(IMG.scena_arrivo, 0, 0, W, H); g.fillStyle = mode === 'title' ? 'rgba(4,6,14,.55)' : 'rgba(4,6,14,.7)'; g.fillRect(0, 0, W, H); } else drawCityBack('roma', null, 0.55);
+  drawGameName(IMG.logo ? 135 : 150, 1);
   if (mode === 'title') {
-    ROSTER.forEach((R, i) => { if (!heroOpen(i, 0)) return; spr('arte', `${R.id}_${i % 2 ? R.F.w : R.F.i[Math.floor(T * 2.5 + i) % 2]}`, 250 + i * 150, 560, { scale: 0.95, sy: 1 + Math.sin(T * 5 + i) * 0.03 }); });
+    if (!IMG.scena_arrivo) ROSTER.forEach((R, i) => { if (!heroOpen(i, 0)) return; spr('arte', `${R.id}_${i % 2 ? R.F.w : R.F.i[Math.floor(T * 2.5 + i) % 2]}`, 250 + i * 150, 560, { scale: 0.95, sy: 1 + Math.sin(T * 5 + i) * 0.03 }); });
     const rows = SAVE.max > 0 ? [['GIOCA', ''], ['MISSIONE', `${tsel.mi + 1} ${MISSIONS[tsel.mi].city}`], ['DIFFICOLTA', DK().name]] : [['GIOCA', ''], ['DIFFICOLTA', DK().name]];
+    panel(230, 290, 480, rows.length * 44 + 60, '#ffc052', 0.8);
     rows.forEach(([a, b], i) => {
-      const y = 262 + i * 40, on = tsel.row === i;
+      const y = 330 + i * 44, on = tsel.row === i;
       ptitle(b ? `${a}: < ${b} >` : a, 470, y, on ? 20 : 15, '#ffffff', on ? '#ff5b4f' : '#56687a');
     });
-    if (Math.floor(T * 2) % 2) ptxt('PREMI FUOCO', 470, 262 + rows.length * 40 + 4, 12, '#ffe3a0', 'center');
-    drawRecords(900, 250, 300);
+    if (Math.floor(T * 2) % 2) ptxt('PREMI FUOCO', 470, 330 + rows.length * 44 + 4, 12, '#ffe3a0', 'center');
+    drawRecords(900, 300, 300);
     ptxt('1P: FRECCE · J FUOCO · K SALTO · L GRANATA    2P: WASD · F FUOCO · G SALTO · H GRANATA    PAD: X FUOCO · A SALTO · B GRANATA', W / 2, 670, 8, '#9fb4c8', 'center');
     ptxt('SU + FUOCO: SPARA IN ALTO · IN ARIA GIU + FUOCO: SPARA IN BASSO · GIU: ACCOVACCIATI · SALTA SULLA VESPONA PER SALIRCI', W / 2, 692, 8, '#9fb4c8', 'center');
     return;
@@ -1354,11 +1356,12 @@ function drawTitle() {
 function drawEnd(win) {
   if (win && IMG.scena_finale) { g.drawImage(IMG.scena_finale, 0, 0, W, H); g.fillStyle = 'rgba(4,6,14,.35)'; g.fillRect(0, 0, W, H); }
   else if (win) drawCityBack('roma', null, 0.72); else { g.fillStyle = '#04070f'; g.fillRect(0, 0, W, H); }
+  if (win && IMG.scena_finale) { g.fillStyle = 'rgba(4,6,14,.55)'; g.fillRect(0, 0, W, 210); g.fillRect(0, 570, W, 150); }
   ptitle(win ? 'TUTTI A TAVOLA!' : 'GAME OVER', W / 2, 120, 44, '#fff6d6', win ? '#7bf0b1' : '#ff4a3a');
   txt(win ? 'Animali e umani, seduti allo stesso tavolo. Fine... per ora!' : `I marziani hanno vinto a ${MISSIONS[MI].city}... per stavolta.`, W / 2, 180, 22, '#c8d6e4', 'center', 700);
   if (win && !IMG.scena_finale) ROSTER.forEach((R, i) => spr('arte', `${R.id}_${R.F.w}`, 170 + i * 150, 560, { scale: 0.85, sy: 1 + Math.sin(T * 6 + i) * 0.04 }));
-  if (S) S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, 420, 250 + i * 30, 10, ROSTER[p.hero].color, 'center'));
-  drawRecords(900, 250, 300);
+  if (S) S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, win ? W / 2 : 420, win ? 600 + i * 24 : 250 + i * 30, 10, ROSTER[p.hero].color, 'center'));
+  if (!win) drawRecords(900, 280, 300);
   if (Math.floor(T * 2) % 2) ptxt(win ? 'PREMI FUOCO PER TORNARE AL TITOLO' : 'FUOCO: RIPROVA LA MISSIONE · START: TITOLO', W / 2, 660, 12, '#ffe3a0', 'center');
   for (const d of DEVICES) {
     const c = inputOf(d);
