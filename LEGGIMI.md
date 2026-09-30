@@ -1,4 +1,4 @@
-# STIVALE (titolo provvisorio) — prova 0.9
+# STIVALE (titolo provvisorio) — prova 0.10
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.
@@ -39,5 +39,7 @@ Online: https://b3pz.github.io/Stivale/ · oppure apri `index.html` con Chrome, 
 
 ## Grafica che manca ancora
 - **Ritratti e scene** (blocco 6).
+- **Piattaforme disegnate** (blocco 7): c'è Roma; le altre città usano ancora quelle fatte dal gioco. Metti `piatt_<città>.png` in `assets/source/` e lancia `tools/build_piatt.py`.
+- **Oggetti, colpi, effetti, interfaccia** (blocco 8).
 
 Il vecchio prototipo con i personaggi di Primal Sentinels è in `assalto/`.

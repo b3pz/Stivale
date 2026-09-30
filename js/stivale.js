@@ -717,11 +717,32 @@ function drawBack() {
   g.fillStyle = 'rgba(8,6,14,.18)'; g.fillRect(0, 0, W, H);
   // the street of the background is the ground: just a shade where the feet go
   const gr = g.createLinearGradient(0, GROUND - 30, 0, H); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.35)'); g.fillStyle = gr; g.fillRect(0, GROUND - 30, W, H - GROUND + 30);
-  for (const [px, pw, py] of PLATFORMS) { const x = px - S.cam; if (x <= W && x + pw >= 0) drawPlatform(x, pw, py, PSTYLE[M.bg] || 'marmo'); }
+  for (const [px, pw, py] of PLATFORMS) { const x = px - S.cam; if (x <= W && x + pw >= 0) drawPlatform(x, pw, py, PSTYLE[M.bg] || 'marmo', own ? M.bg : 'roma'); }
 }
 /* the platforms change with the city: marble, wooden pier, iron girder, snowy planks */
+const DECO_X = [380, 1640, 2760, 3700, 4760, 5760, 6760, 7700];
 const PSTYLE = { roma: 'marmo', firenze: 'marmo', stretto: 'marmo', venezia: 'legno', genova: 'legno', torino: 'ferro', etna: 'ferro', dolomiti: 'neve' };
-function drawPlatform(x, pw, py, st) {
+/* the painted platforms (tools/build_piatt.py): two poles down to the street, then the slab,
+   whose ends keep their shape while the middle stretches to the width of the platform */
+const SLAB_SY = 0.85, POLE_S = 0.8;
+function drawPiatt(city, x, pw, py) {
+  const A = window.ATLAS.piatt, img = IMG.piatt, slab = A[`${city}_${pw < 300 && A[`${city}_corta`] ? 'corta' : 'lunga'}`], pole = A[`${city}_palo`];
+  if (pole) {
+    const [sx, sy, sw, sh] = pole, w = sw * POLE_S, need = GROUND - py;
+    for (const cx of [x + 26 + w / 2, x + pw - 26 - w / 2]) {
+      // the foot of the pole stands on the street; if the pole is too short it is stretched, if too long its top is hidden
+      const nat = sh * POLE_S;
+      if (nat >= need) { const cut = need / POLE_S; g.drawImage(img, sx, sy + sh - cut, sw, cut, cx - w / 2, py, w, need); }
+      else g.drawImage(img, sx, sy, sw, sh, cx - w / 2, py, w, need);
+    }
+  }
+  const [sx, sy, sw, sh, , ay] = slab, cap = Math.round(sw * 0.16), y = py - ay * SLAB_SY, h = sh * SLAB_SY, cw = cap * SLAB_SY;
+  g.drawImage(img, sx, sy, cap, sh, x, y, cw, h);
+  g.drawImage(img, sx + cap, sy, sw - 2 * cap, sh, x + cw, y, pw - 2 * cw, h);
+  g.drawImage(img, sx + sw - cap, sy, cap, sh, x + pw - cw, y, cw, h);
+}
+function drawPlatform(x, pw, py, st, city) {
+  if (IMG.piatt && window.ATLAS.piatt && window.ATLAS.piatt[`${city}_lunga`]) { drawPiatt(city, x, pw, py); return; }
   const legs = [x + 20, x + pw - 50], lh = GROUND - py - 20;
   g.lineWidth = 4; g.strokeStyle = '#2a1a10';
   if (st === 'marmo') {
@@ -881,6 +902,9 @@ function draw() {
     if (f.k === 'mark') { const k = f.t / 0.95; g.fillStyle = `rgba(0,0,0,${0.2 + k * 0.4})`; g.beginPath(); g.ellipse(f.x, GROUND - 2, 10 + k * 26, 5 + k * 6, 0, 0, 7); g.fill(); }
     else if (f.k === 'puddle') { g.fillStyle = `rgba(30,24,40,${0.7 * (1 - f.t / 1.2)})`; g.beginPath(); g.ellipse(f.x, GROUND - 2, 34, 7, 0, 0, 7); g.fill(); }
   }
+  // the city's scenery objects (from its platform sheet), on the street behind everyone
+  const city = IMG[MISSIONS[MI].bg] ? MISSIONS[MI].bg : 'roma';
+  if (IMG.piatt && window.ATLAS.piatt && window.ATLAS.piatt[`${city}_deco`]) DECO_X.forEach((dx, i) => { if (dx > S.cam - 300 && dx < S.cam + W + 300) spr('piatt', `${city}_deco`, dx, GROUND + 6, { scale: 0.75, face: i % 2 ? -1 : 1 }); });
   // props
   for (const o of S.props) if (o.hp > 0) { spr('items', o.k, o.x + (o.shake > 0 ? rand(-3, 3) : 0), o.y, { scale: 1.6 }); }
   // prisoners: pris 0-3 legati · 4-7 liberi
@@ -972,7 +996,7 @@ function drawHUD() {
   if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; ptitle(S.banner.a, W / 2, 300, 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.9', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.10', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- the professor's briefing ---------------- */
@@ -1129,7 +1153,7 @@ window.Stivale = window.Assalto = {
 };
 (async function boot() {
   try { if (window.loadFonts) await window.loadFonts(); } catch (e) {}
-  await loadImages([['arte', 'assets/sprites/arte.png'], ['capi', 'assets/sprites/capi.png'], ['items', 'assets/sprites/items.png'], ['roma', 'assets/bg/roma.jpg']]).catch((e) => console.error('immagine mancante', e));
+  await loadImages([['arte', 'assets/sprites/arte.png'], ['capi', 'assets/sprites/capi.png'], ['items', 'assets/sprites/items.png'], ['piatt', 'assets/sprites/piatt.png'], ['roma', 'assets/bg/roma.jpg']]).catch((e) => console.error('immagine mancante', e));
   document.querySelector('#loading') && document.querySelector('#loading').remove();
   requestAnimationFrame(frame);
   // the other cities: painted backgrounds are optional (until they exist, Rome is recoloured)
