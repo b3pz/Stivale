@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Stivale · prova di stile</title>
+<title>Primal Sentinels · Assalto (prototipo)</title>
 <link rel="icon" href="assets/ui/icon-192.png">
 <style>
   html, body { margin: 0; height: 100%; background: #04070f; overflow: hidden; }
@@ -13,7 +13,7 @@
 </style>
 <script>
 /* salvataggi e opzioni separati dagli altri due giochi */
-(function () { try { const ls = window.localStorage, P = 'stivale:'; const store = { getItem: (k) => ls.getItem(P + k), setItem: (k, v) => ls.setItem(P + k, v), removeItem: (k) => ls.removeItem(P + k), key: (i) => ls.key(i), get length() { return ls.length; }, clear: () => {} }; Object.defineProperty(window, 'localStorage', { value: store, configurable: true }); } catch (e) {} })();
+(function () { try { const ls = window.localStorage, P = 'ps-assalto:'; const store = { getItem: (k) => ls.getItem(P + k), setItem: (k, v) => ls.setItem(P + k, v), removeItem: (k) => ls.removeItem(P + k), key: (i) => ls.key(i), get length() { return ls.length; }, clear: () => {} }; Object.defineProperty(window, 'localStorage', { value: store, configurable: true }); } catch (e) {} })();
 </script>
 </head>
 <body>
@@ -26,7 +26,6 @@
 <script src="js/data.js"></script>
 <script src="js/core.js"></script>
 <script src="js/music.js"></script>
-<script src="js/arte.js"></script>
-<script src="js/stivale.js"></script>
+<script src="js/assalto.js"></script>
 </body>
 </html>
