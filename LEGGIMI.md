@@ -1,4 +1,4 @@
-# STIVALE (titolo provvisorio) — prova 0.7
+# STIVALE (titolo provvisorio) — prova 0.8
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.
@@ -19,6 +19,7 @@ Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`
   6. Il Pupazzo di Neve Meccanico: palle di neve che rotolano, palle lanciate, onde.
   7. La Nave Miraggio (vola): pioggia di cristalli (guarda le ombre), raggio alto/basso, dischi volanti.
   8. Il Comandante: tutto quanto… e poi il casco si apre.
+- Ogni città ha il suo fondale e le sue piattaforme (marmo, pontili di legno, travi di ferro, assi innevate).
 - Dopo l'Etna: la scena della rivelazione e il finale.
 - Game over: fuoco = riprova la missione, start = titolo.
 
@@ -37,8 +38,6 @@ Online: https://b3pz.github.io/Stivale/ · oppure apri `index.html` con Chrome, 
 - Un colpo e sei fuori, 3 vite. I boss si colpiscono meglio quando sono stanchi (le stelline sopra la testa).
 
 ## Grafica che manca ancora
-- Gli **sfondi delle città** (Genova, Dolomiti, Stretto, Etna): finché non ci sono, si vede Roma ricolorata.
-  Basta mettere `assets/bg/genova.jpg`, `dolomiti.jpg`, `stretto.jpg`, `etna.jpg` e il gioco li usa da solo.
 - **Ritratti e scene** (blocco 6).
 
 Il vecchio prototipo con i personaggi di Primal Sentinels è in `assalto/`.

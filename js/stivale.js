@@ -708,20 +708,57 @@ function drawBack() {
   g.fillStyle = 'rgba(8,6,14,.18)'; g.fillRect(0, 0, W, H);
   // the street of the background is the ground: just a shade where the feet go
   const gr = g.createLinearGradient(0, GROUND - 30, 0, H); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.35)'); g.fillStyle = gr; g.fillRect(0, GROUND - 30, W, H - GROUND + 30);
-  // platforms: broken marble slabs on columns
-  for (const [px, pw, py] of PLATFORMS) {
-    const x = px - S.cam; if (x > W || x + pw < 0) continue;
-    for (const cx of [x + 20, x + pw - 50]) {
+  for (const [px, pw, py] of PLATFORMS) { const x = px - S.cam; if (x <= W && x + pw >= 0) drawPlatform(x, pw, py, PSTYLE[M.bg] || 'marmo'); }
+}
+/* the platforms change with the city: marble, wooden pier, iron girder, snowy planks */
+const PSTYLE = { roma: 'marmo', firenze: 'marmo', stretto: 'marmo', venezia: 'legno', genova: 'legno', torino: 'ferro', etna: 'ferro', dolomiti: 'neve' };
+function drawPlatform(x, pw, py, st) {
+  const legs = [x + 20, x + pw - 50], lh = GROUND - py - 20;
+  g.lineWidth = 4; g.strokeStyle = '#2a1a10';
+  if (st === 'marmo') {
+    for (const cx of legs) {
       const cg = g.createLinearGradient(cx, 0, cx + 30, 0); cg.addColorStop(0, '#6a5a4a'); cg.addColorStop(0.35, '#d8c4a0'); cg.addColorStop(1, '#4a3e34');
-      g.fillStyle = cg; g.fillRect(cx, py + 20, 30, GROUND - py - 20);
-      g.fillStyle = 'rgba(0,0,0,.22)'; for (let k = 6; k < 30; k += 8) g.fillRect(cx + k, py + 20, 2, GROUND - py - 20);
+      g.fillStyle = cg; g.fillRect(cx, py + 20, 30, lh);
+      g.fillStyle = 'rgba(0,0,0,.22)'; for (let k = 6; k < 30; k += 8) g.fillRect(cx + k, py + 20, 2, lh);
       g.fillStyle = '#b8a07e'; g.fillRect(cx - 6, py + 16, 42, 8); g.fillRect(cx - 6, GROUND - 10, 42, 10);
     }
     const sg = g.createLinearGradient(0, py, 0, py + 22); sg.addColorStop(0, '#f2e2c0'); sg.addColorStop(1, '#c8a878');
-    g.fillStyle = sg; g.fillRect(x, py, pw, 22); g.lineWidth = 4; g.strokeStyle = '#2a1a10'; g.strokeRect(x, py, pw, 22);
+    g.fillStyle = sg; g.fillRect(x, py, pw, 22); g.strokeRect(x, py, pw, 22);
     g.fillStyle = 'rgba(40,24,16,.5)'; for (let k = 30; k < pw; k += 70) g.fillRect(x + k, py + 4, 2, 16);
-    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x + 6, py + 22, pw - 12, 6);
+  } else if (st === 'ferro') {
+    // riveted steel girders with cross bracing and a hazard stripe
+    for (const cx of legs) {
+      g.fillStyle = '#4a4e58'; g.fillRect(cx, py + 20, 30, lh); g.strokeRect(cx, py + 20, 30, lh);
+      g.fillStyle = '#6a707c'; g.fillRect(cx + 10, py + 20, 10, lh);
+    }
+    g.save(); g.beginPath(); g.rect(legs[0] + 30, py + 20, legs[1] - legs[0] - 30, lh); g.clip();
+    g.strokeStyle = '#3a3e48'; g.lineWidth = 6;
+    for (let yy = py + 20; yy < GROUND; yy += 90) { g.beginPath(); g.moveTo(legs[0] + 30, yy); g.lineTo(legs[1], yy + 90); g.moveTo(legs[1], yy); g.lineTo(legs[0] + 30, yy + 90); g.stroke(); }
+    g.restore(); g.lineWidth = 4; g.strokeStyle = '#2a1a10';
+    g.fillStyle = '#5a606c'; g.fillRect(x, py, pw, 22); g.strokeRect(x, py, pw, 22);
+    g.save(); g.beginPath(); g.rect(x + 2, py + 14, pw - 4, 7); g.clip();
+    for (let k = -10; k < pw; k += 24) { g.fillStyle = '#e8c030'; g.beginPath(); g.moveTo(x + k, py + 21); g.lineTo(x + k + 12, py + 14); g.lineTo(x + k + 24, py + 14); g.lineTo(x + k + 12, py + 21); g.fill(); }
+    g.restore();
+    g.fillStyle = '#c8ccd4'; for (let k = 12; k < pw; k += 28) { g.beginPath(); g.arc(x + k, py + 7, 2.5, 0, 7); g.fill(); }
+  } else {
+    // wooden pier on piles (Venice, Genoa) or snowy planks (Dolomites)
+    for (const cx of legs) {
+      g.fillStyle = '#6a4424'; g.fillRect(cx + 4, py + 20, 22, lh); g.strokeRect(cx + 4, py + 20, 22, lh);
+      g.fillStyle = 'rgba(255,220,160,.18)'; g.fillRect(cx + 8, py + 20, 5, lh);
+      if (st === 'legno') { g.strokeStyle = '#c8a060'; g.lineWidth = 5; for (const yy of [py + 50, GROUND - 60]) { g.beginPath(); g.moveTo(cx + 2, yy); g.lineTo(cx + 28, yy + 8); g.stroke(); } g.lineWidth = 4; g.strokeStyle = '#2a1a10'; }
+    }
+    const wg = g.createLinearGradient(0, py, 0, py + 22); wg.addColorStop(0, '#b07840'); wg.addColorStop(1, '#7a4a24');
+    g.fillStyle = wg; g.fillRect(x, py, pw, 22); g.strokeRect(x, py, pw, 22);
+    g.fillStyle = 'rgba(40,20,8,.55)'; for (let k = 40; k < pw; k += 40) g.fillRect(x + k, py + 2, 3, 18);
+    g.fillStyle = 'rgba(40,20,8,.35)'; g.fillRect(x + 2, py + 10, pw - 4, 2);
+    if (st === 'neve') {
+      g.fillStyle = '#f4f8ff'; g.beginPath(); g.moveTo(x - 4, py + 4);
+      for (let k = 0; k <= pw + 8; k += 26) g.quadraticCurveTo(x - 4 + k + 13, py - 14 - ((k / 26) % 2) * 4, x - 4 + k + 26, py + 2);
+      g.lineTo(x + pw + 4, py + 6); g.lineTo(x - 4, py + 6); g.closePath(); g.fill(); g.lineWidth = 3; g.stroke();
+      g.fillStyle = '#d8ecff'; for (let k = 18; k < pw - 10; k += 46) { g.beginPath(); g.moveTo(x + k, py + 22); g.lineTo(x + k + 10, py + 22); g.lineTo(x + k + 5, py + 36 + (k % 3) * 5); g.fill(); }
+    }
   }
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x + 6, py + 22, pw - 12, 6);
 }
 /* rubber hose: squash when landing, stretch when jumping, a breathing bounce when still */
 function heroFrame(p) {
@@ -926,7 +963,7 @@ function drawHUD() {
   if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; ptitle(S.banner.a, W / 2, 300, 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.7', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.8', W - 16, H - 10, 7, '#56687a', 'right');
 }
 
 /* ---------------- the professor's briefing ---------------- */
