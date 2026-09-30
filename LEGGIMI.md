@@ -1,4 +1,4 @@
-# STIVALE (titolo provvisorio) — prova 0.11
+# STIVALE (titolo provvisorio) — prova 0.12
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.
@@ -19,7 +19,7 @@ Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`
   6. Il Pupazzo di Neve Meccanico: palle di neve che rotolano, palle lanciate, onde.
   7. La Nave Miraggio (vola): pioggia di cristalli (guarda le ombre), raggio alto/basso, dischi volanti.
   8. Il Comandante: tutto quanto… e poi il casco si apre.
-- Ogni città ha il suo fondale e le sue piattaforme (marmo, pontili di legno, travi di ferro, assi innevate).
+- Ogni città ha il suo fondale, le sue piattaforme disegnate e i suoi oggetti di scena (capitello, gondola, vaso, auto, bitta, pupazzo di neve, palma, tubo).
 - Dopo l'Etna: la scena della rivelazione e il finale.
 - Game over: fuoco = riprova la missione, start = titolo.
 
@@ -39,7 +39,6 @@ Online: https://b3pz.github.io/Stivale/ · oppure apri `index.html` con Chrome, 
 
 ## Grafica che manca ancora
 - **Ritratti e scene** (blocco 6).
-- **Piattaforme disegnate** (blocco 7): ci sono Roma e Venezia; le altre città usano ancora quelle fatte dal gioco. Metti `piatt_<città>.png` in `assets/source/` e lancia `tools/build_piatt.py`.
 - **Oggetti, colpi, effetti, interfaccia** (blocco 8).
 
 Il vecchio prototipo con i personaggi di Primal Sentinels è in `assalto/`.
