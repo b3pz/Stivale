@@ -7,7 +7,7 @@
    armi a lettere, granate, prigionieri da liberare. 1 o 2 giocatori sullo stesso PC.
    ============================================================ */
 const GROUND = 648, GRAV = 2100, JUMP_V = 1040, RUN = 290, HERO_SC = 0.95;
-const ARENA_X = 6700, LEVEL_LEN = ARENA_X + 1280;
+let ARENA_X = 6700, LEVEL_LEN = ARENA_X + 1280;
 
 /* ---------------- input ---------------- */
 const KEYSETS = [
@@ -57,29 +57,20 @@ const WEAPONS = {
 };
 const WCOL = { H: '#ffd35a', S: '#7bf0b1', F: '#ff7a3a', R: '#ff5b8a', P: '#e8eef4' };
 
-/* ---------------- the level ---------------- */
-const PLATFORMS = [
-  [1450, 260, 470], [1800, 300, 420], [2200, 240, 470], [2480, 220, 340],
-  [4000, 300, 470], [4420, 260, 390], [5200, 280, 470], [5560, 260, 380], [5900, 240, 470],
-];
-/* waves: when the camera reaches x, spawn these ([type, x offset from camera right, y or 'g']) ; lock = arena */
-const WAVES = [
-  { x: 150, spawn: [['fante', 60], ['fante', 160], ['fante', 260]] },
-  { x: 700, spawn: [['fante', 40], ['fante', 120], ['bruto', 260]], lock: true },
-  { x: 1250, spawn: [['drone', 80, 250], ['fante', 60], ['fante', 150]] },
-  { x: 1800, spawn: [['fante', 40, 400], ['fante', 140], ['drone', 200, 220], ['fante', 260]], lock: true },
-  { x: 2500, spawn: [['drone', 60, 200], ['drone', 220, 260], ['fante', 120]] },
-  { x: 3300, spawn: [['bruto', 60], ['fante', 160], ['fante', 240], ['bruto', 360]], lock: true },
-  { x: 4100, spawn: [['fante', 60, 470], ['fante', 120], ['drone', 240, 240], ['fante', 300]] },
-  { x: 4700, spawn: [['bruto', 60], ['drone', 160, 220], ['drone', 300, 280], ['fante', 120], ['fante', 220]], lock: true },
-  { x: 5400, spawn: [['fante', 40, 470], ['fante', 140, 380], ['fante', 260], ['drone', 200, 200]] },
-  { x: 6000, spawn: [['drone', 60, 200], ['drone', 160, 260], ['drone', 260, 220], ['bruto', 140]], lock: true },
-];
-const CRATES = [[600, 'crate'], [1150, 'barrel'], [2050, 'crate'], [3050, 'barrel'], [3150, 'barrel'], [4300, 'crate'], [5050, 'barrel'], [6150, 'crate']];
-const VEHICLE_X = 2900;
-
-/* prisoners: [x, the weapon they leave, y] — who they are changes with the mission */
-const PRISONERS = [[980, 'H'], [2560, 'S', 340], [3900, 'F'], [5620, 'R', 380], [6300, 'H']];
+/* ---------------- the level (js/livelli.js: one plan per city) ---------------- */
+let PLATFORMS = [], WAVES = [], CRATES = [], PRISONERS = [], VEHICLE_X = 2900, DECO_X = [], LV = null;
+const WTYPE = { f: 'fante', F: 'fante', b: 'bruto', d: 'drone', r: 'robo', u: 'uff' };
+function loadLevel(mi) {
+  LV = PIANTE[mi];
+  ARENA_X = LV.arena; LEVEL_LEN = ARENA_X + W;
+  PLATFORMS = LV.plats.map(([x, w, y, o]) => Object.assign([x, w, y], o || {}, { shake: 0, gone: false, goneT: 0 }));
+  WAVES = LV.waves.map(([x, spec, lock]) => ({ x, lock: !!lock, spawn: [...spec].map((ch, i) => [WTYPE[ch], 60 + i * 110, ch === 'F' ? 400 : ch === 'd' ? rand(190, 280) : undefined]) }));
+  CRATES = LV.crates; VEHICLE_X = LV.veh;
+  PRISONERS = LV.pris.map(([x, w, p]) => { const P = p && PLATFORMS.find((q) => x > q[0] + 20 && x < q[0] + q[1] - 20); return [x, w, P ? P[2] : undefined]; });
+  DECO_X = [];
+  for (let x = 380; x < ARENA_X + W - 200; x += 1000 + (x % 3) * 90) if (!CRATES.some(([cx]) => Math.abs(cx - x) < 150) && !PRISONERS.some(([px]) => Math.abs(px - x) < 150) && !(LV.geysers || []).some((gx) => Math.abs(gx - x) < 150)) DECO_X.push(x);
+}
+function platAt(x, y) { return PLATFORMS.find((P) => !P.gone && x > P[0] && x < P[0] + P[1] && Math.abs(y - P[2]) < 3); }
 
 /* ---------------- the heroes ----------------
    frame maps on the 4x4 sheets: i guardia · r corsa · j salto · s spara · u spara in alto
@@ -156,7 +147,7 @@ const CAPI = {
 let S = null, mode = 'title', T = 0, sel = null, MI = 0, brief = null, rv = null;
 const ids = { n: 1 }; const nid = () => ids.n++;
 function newGame(players, mi = 0, keep = null) {
-  MI = mi;
+  MI = mi; loadLevel(mi);
   const M = MISSIONS[mi];
   S = {
     t: 0, cam: 0, lock: null, wave: 0, players: [], enemies: [], shots: [], foeShots: [], bombs: [], fx: [], pops: [],
@@ -167,13 +158,13 @@ function newGame(players, mi = 0, keep = null) {
   };
   players.forEach((p, i) => {
     const q = newPlayer(p.dev, p.hero, i), k = keep && keep[i];
-    if (k) { q.score = k.score; q.kills = k.kills; q.freed = k.freed; q.lives = k.out ? 3 : Math.max(1, k.lives); if (!k.out) { q.bombs = Math.max(k.bombs, 5); q.w = k.w; q.ammo = k.ammo; } }
+    if (k) { q.score = k.score; q.kills = k.kills; q.freed = k.freed; q.lives = k.out ? DK().lives : Math.max(1, k.lives); if (!k.out) { q.bombs = Math.max(k.bombs, 5); q.w = k.w; q.ammo = k.ammo; } }
     S.players.push(q);
   });
-  Audio.playSong(1 + (mi % 3));
+  Audio.playSong(0, MISSIONS[mi].bg);
 }
 function newPlayer(dev, hero, slot) {
-  return { id: nid(), dev, hero, slot, x: 160 + slot * 90, y: GROUND - 300, vy: 0, face: 1, st: 'drop', t: 0, inv: 2, lives: 3, score: 0,
+  return { id: nid(), dev, hero, slot, x: 160 + slot * 90, y: GROUND - 300, vy: 0, face: 1, st: 'drop', t: 0, inv: 2, lives: DK().lives, score: 0,
     w: 'P', ammo: Infinity, bombs: ROSTER[hero].bombs, cd: 0, aim: 'f', onGround: false, crouch: false, kills: 0, freed: 0, run: 0, knife: 0, dead: false, out: false };
 }
 
@@ -181,20 +172,22 @@ function newPlayer(dev, hero, slot) {
 function groundUnder(x, y, vy, drop) {
   // returns the floor height the feet land on (one-way platforms)
   let best = GROUND;
-  if (!drop) for (const [px, pw, py] of PLATFORMS) if (x > px && x < px + pw && y <= py + 2 && py < best) best = py;
+  if (!drop) for (const P of PLATFORMS) { if (P.gone) continue; const [px, pw, py] = P; if (x > px && x < px + pw && y <= py + 2 && py < best) best = py; }
   return best;
 }
-function onPlatform(x, y) { return PLATFORMS.some(([px, pw, py]) => x > px && x < px + pw && Math.abs(y - py) < 3); }
+function onPlatform(x, y) { return PLATFORMS.some((P) => !P.gone && x > P[0] && x < P[0] + P[1] && Math.abs(y - P[2]) < 3); }
 function pop(x, y, s, c = '#ffffff', big = 0) { S.pops.push({ x, y, s, c, big, t: 0 }); }
 function boom(x, y, r = 1) { S.fx.push({ k: 'boom', x, y, r, t: 0 }); S.shake = Math.max(S.shake, 8 * r); Audio.sfx('boom'); }
 function spark(x, y, c = '#ffe08a', n = 6) { S.fx.push({ k: 'hit', x, y, t: 0 }); for (let i = 0; i < n; i++) S.fx.push({ k: 'sp', x, y, vx: rand(-260, 260), vy: rand(-320, 40), c, t: 0, life: rand(0.2, 0.45) }); }
+function waterY() { return GROUND + 24 - (S.water ? S.water.h : 0) * 62; }
+function inWater(p) { return LV && LV.hazard === 'acqua' && S.water && S.water.h > 0.3 && p.y > waterY() - 2; }
 function alive() { return S.players.filter((p) => !p.out && !p.dead); }
 
 /* ---------------- players ---------------- */
 function stepPlayer(p, c, dt) {
   const R = ROSTER[p.hero];
   p.t += dt; p.cd -= dt; p.inv = Math.max(0, p.inv - dt); p.knife = Math.max(0, p.knife - dt);
-  if (p.out) { if (c.pressed.start || c.pressed.fire) { p.out = false; p.lives = 3; p.score = 0; p.w = 'P'; p.ammo = Infinity; p.bombs = R.bombs; respawn(p); } return; }
+  if (p.out) { if (c.pressed.start || c.pressed.fire) { p.out = false; p.lives = DK().lives; p.score = 0; p.w = 'P'; p.ammo = Infinity; p.bombs = R.bombs; respawn(p); } return; }
   p.land = Math.max(0, (p.land || 0) - dt); p.bombT = Math.max(0, (p.bombT || 0) - dt);
   if (p.dead) { p.vy += GRAV * dt; p.y = Math.min(GROUND, p.y + p.vy * dt); if (p.t > 1.6) { if (p.lives > 0) respawn(p); else { p.out = true; } } return; }
   if (p === S.veh.rider) { stepRider(p, c, dt); return; }
@@ -202,15 +195,18 @@ function stepPlayer(p, c, dt) {
   const dx = (c.r ? 1 : 0) - (c.l ? 1 : 0);
   p.crouch = !!c.d && p.onGround;
   if (dx) p.face = dx;
-  const sp = RUN * R.run * (p.crouch ? 0.45 : 1);
-  p.x += dx * sp * dt;
+  const wet = inWater(p), sp = RUN * R.run * (p.crouch ? 0.45 : 1) * (wet ? 0.55 : 1);
+  if (LV.hazard === 'ghiaccio' && p.onGround) p.vx = (p.vx || 0) + (dx * sp - (p.vx || 0)) * Math.min(1, dt * 2.2);   // ice: you slide
+  else p.vx = dx * sp;
+  p.x += p.vx * dt;
+  if (p.onGround) { const P = platAt(p.x, p.y); if (P && P.belt) p.x += P.belt * 120 * dt; }   // conveyor belts
   const lo = S.cam + 40, hi = (S.lock !== null ? S.lock + W : S.cam + W) - 40;
   p.x = clamp(p.x, lo, hi);
   p.run = dx && p.onGround ? p.run + dt * 9 * R.run : 0;
   // jump / drop through / Alba's double jump
   if (c.pressed.jump && p.onGround) {
     if (c.d && onPlatform(p.x, p.y)) { p.dropT = 0.25; p.onGround = false; p.y += 4; }
-    else { p.vy = -JUMP_V * R.jump; p.onGround = false; p.dbl = false; Audio.sfx('jump'); }
+    else { p.vy = -JUMP_V * R.jump * (wet ? 0.85 : 1); p.onGround = false; p.dbl = false; Audio.sfx('jump'); }
   } else if (c.pressed.jump && R.dbl && !p.onGround && !p.dbl && !(p.dropT > 0)) {
     p.dbl = true; p.vy = -JUMP_V * 0.82; Audio.sfx('jump'); spark(p.x, p.y, '#e8f4ff', 6);
   }
@@ -319,6 +315,7 @@ function spawnEnemy(type, x, y) {
   if (type === 'robo') { e.hp = 1; }
   if (type === 'uff') { e.hp = 4; e.cd = 1.2; }
   if (type === 'bruto') { e.hp = 10; e.cd = 1.5; }
+  if (LV && LV.hazard === 'miraggi' && type !== 'drone' && Math.random() < 0.3) { e.mirage = true; e.hp = 0.5; e.cd = 1e9; }
   if (type === 'drone') { e.hp = 3; e.fly = true; e.y = y || 220; e.base = e.y; e.over = Math.random() < 0.3; }
   S.enemies.push(e);
   return e;
@@ -328,6 +325,7 @@ function hurtEnemy(e, dmg, by) {
   e.hp -= dmg; e.flash = 0.08;
   if (e.hp <= 0) {
     e.st = 'dead'; e.t = 0; e.vy = -300;
+    if (e.mirage) { if (by && by.score !== undefined) by.score += 50; spark(e.x, e.y - 70, '#bff4ff', 12); pop(e.x, e.y - 130, 'ERA UN MIRAGGIO!', '#bff4ff'); Audio.sfx('boing'); return; }
     const pts = { bruto: 800, uff: 500, drone: 400, robo: 150 }[e.type] || 200;
     if (by && by.score !== undefined) { by.score += pts; by.kills++; }
     if (e.type === 'drone') boom(e.x, e.y - 20, 0.8); else if (e.type === 'robo') { spark(e.x, e.y - 50, '#c8d2dc', 12); } else spark(e.x, e.y - 80, '#ffcf8a', 10);
@@ -348,7 +346,7 @@ function stepEnemy(e, dt) {
   if (e.st === 'dead') { e.vy += GRAV * dt; e.y = Math.min(e.fly ? GROUND : e.y + e.vy * dt, GROUND); return; }
   const P = nearestPlayer(e); if (!P) return;
   const dx = P.x - e.x; e.face = Math.sign(dx) || e.face;
-  e.cd -= dt;
+  e.cd -= dt * DK().foe;
   if (e.type === 'fante') {
     const want = Math.abs(dx) > 380 ? 1 : Math.abs(dx) < 160 ? -0.6 : 0;
     if (e.st === 'walk') {
@@ -395,7 +393,7 @@ function stepEnemy(e, dt) {
       e.x += e.dir * 560 * dt;
       if (e.t > 0.9) { e.st = 'walk'; e.cd = rand(2, 3); }
     }
-    for (const p of alive()) if (Math.abs(p.x - e.x) < 70 && Math.abs(p.y - e.y) < 90) kill(p);
+    if (!e.mirage) for (const p of alive()) if (Math.abs(p.x - e.x) < 70 && Math.abs(p.y - e.y) < 90) kill(p);
     if (S.veh.rider && Math.abs(S.veh.x - e.x) < 120) { hurtVehicle(); if (e.st === 'charge') { e.st = 'walk'; e.cd = 2; e.x -= e.dir * 60; } }
   } else if (e.type === 'drone') {
     e.ot = (e.ot === undefined ? rand(2, 4) : e.ot) - dt; if (e.ot <= 0) { e.over = !e.over; e.ot = e.over ? rand(2.5, 3.5) : rand(2, 4); }   // keeps its distance, then swoops overhead
@@ -424,9 +422,9 @@ function stepEnemy(e, dt) {
 function bossDef() { return CAPI[S.boss ? S.boss.id : MISSIONS[MI].boss]; }
 function startBoss() {
   const n = S.players.length, id = MISSIONS[MI].boss, D = CAPI[id];
-  S.boss = { id, x: ARENA_X + W - 220, y: D.fly ? 380 : GROUND, hp: D.hp + n * 120, max: D.hp + n * 120, face: -1, st: 'intro', t: 0, cd: 1.5, flash: 0, pat: 0, dead: false, did: 0, bn: 0 };
+  S.boss = { id, x: ARENA_X + W - 220, y: D.fly ? 380 : GROUND, hp: Math.round((D.hp + n * 120) * DK().boss), max: Math.round((D.hp + n * 120) * DK().boss), face: -1, st: 'intro', t: 0, cd: 1.5, flash: 0, pat: 0, dead: false, did: 0, bn: 0 };
   S.banner = { t: 3, a: D.name, b: D.tip };
-  Audio.playSong(4);
+  Audio.playSong(0, 'boss');
 }
 function bossTired(B) { B.st = 'tired'; B.t = 0; B.did = 0; }
 function lob(B, P, k, tx) {
@@ -455,7 +453,7 @@ function stepBoss(dt) {
       face();
       if (D.fly) B.x += clamp(P.x - B.face * 280 - B.x, -160, 160) * dt;
       else B.x += B.face * 90 * dt;
-      B.cd -= dt;
+      B.cd -= dt * DK().foe;
       if (B.cd <= 0) { const [a, pose] = D.att[B.pat++ % D.att.length]; B.st = a; B.pose = pose; B.t = 0; B.did = 0; reset(); Audio.sfx('bosswind'); }
       break;
     case 'slam':
@@ -591,10 +589,12 @@ function stepShots(dt) {
     if (s.t !== undefined) s.t += dt;
     if (s.spin !== undefined) s.spin += dt * (s.k === 'ball' ? 8 : 14);
     if (s.k === 'shield') { s.vx -= s.back * 700 * dt; if (S.boss && s.life < 2.2 && Math.abs(s.x - S.boss.x) < 60) s.life = 0; }
-    if (s.k !== 'shield' && s.k !== 'ball' && s.k !== 'beam' && s.k !== 'tract' && s.y > GROUND - (s.k === 'dbomb' || s.k === 'drop' ? 6 : 0)) {
+    if (s.k !== 'shield' && s.k !== 'ball' && s.k !== 'beam' && s.k !== 'tract' && s.y > GROUND - (s.k === 'cassa' ? 34 : s.k === 'vaso' ? 16 : s.k === 'dbomb' || s.k === 'drop' ? 6 : 0)) {
       s.life = 0;
       if (s.k === 'dbomb') { boom(s.x, GROUND - 20, 0.6); for (const p of alive()) if (Math.abs(p.x - s.x) < 60 && p.y > GROUND - 60) kill(p); }
       else if (s.k === 'crys') spark(s.x, GROUND, '#bff4ff', 8);
+      else if (s.k === 'cassa') { if (S.props.filter((o) => o.hp > 0).length < 14) S.props.push({ id: nid(), x: s.x, y: GROUND, k: 'crate', hp: 3 }); S.fx.push({ k: 'smoke', x: s.x, y: GROUND, t: 0 }); S.shake = Math.max(S.shake, 6); Audio.sfx('stomp'); }
+      else if (s.k === 'vaso') { spark(s.x, GROUND - 10, '#d8804a', 10); Audio.sfx('break'); }
       else if (s.k === 'drop') { spark(s.x, GROUND, '#3a3040', 6); S.fx.push({ k: 'puddle', x: s.x, t: 0 }); }
       else if (s.k === 'snow' || s.k === 'gear') spark(s.x, GROUND, s.k === 'snow' ? '#ffffff' : '#c8d2dc', 8);
     }
@@ -674,6 +674,7 @@ function step(dt) {
   for (const e of S.enemies) stepEnemy(e, dt);
   S.enemies = S.enemies.filter((e) => !(e.st === 'dead' && e.t > 1.2) && e.x > S.cam - 400);
   stepBoss(dt);
+  stepHazard(dt);
   stepShots(dt);
   for (const q of S.pris) { q.t += dt; if (q.st === 'free') q.x += 170 * dt * (q.t > 0.8 ? 1 : 0); }
   for (const f of S.fx) { f.t += dt; if (f.k === 'sp') { f.vy += 900 * dt; f.x += f.vx * dt; f.y += f.vy * dt; } if (f.k === 'wave') { f.x += f.dir * 520 * dt; for (const p of alive()) if (p.y >= GROUND - 2 && Math.abs(p.x - f.x) < 30) kill(p); } }
@@ -682,11 +683,71 @@ function step(dt) {
   S.pops = S.pops.filter((p) => p.t < (p.big ? 1.4 : 0.8));
   for (const o of S.props) o.shake = Math.max(0, (o.shake || 0) - dt);
   if (S.win) { S.winT += dt; if (S.winT > 5.5) nextMission(); }
-  if (S.overT !== undefined) { S.overT -= dt; if (S.overT <= 0 && S.players.every((p) => p.out)) mode = 'over'; }
+  if (S.overT !== undefined) { S.overT -= dt; if (S.overT <= 0 && S.players.every((p) => p.out)) { S.overT = undefined; finishRun('over'); } }
+}
+/* the city's own trouble: high water, falling pots, conveyor belts, cranes, ice, mirages, lava */
+function stepHazard(dt) {
+  const hz = LV.hazard;
+  for (const P of PLATFORMS) if (P.fall) {   // Etna: walkways that crumble under your feet
+    if (P.gone) { P.goneT += dt; if (P.goneT > 4.5) { P.gone = false; P.shake = 0; P.goneT = 0; } continue; }
+    const on = alive().filter((p) => p.onGround && Math.abs(p.y - P[2]) < 3 && p.x > P[0] && p.x < P[0] + P[1]);
+    if (on.length) { P.shake += dt; if (P.shake > 0.75) { P.gone = true; P.goneT = 0; Audio.sfx('break'); for (const p of on) p.onGround = false; } }
+    else P.shake = Math.max(0, P.shake - dt * 0.5);
+  }
+  if (hz === 'acqua') {   // Venice: the water rises every so often; in the water you are slow
+    const Wt = S.water || (S.water = { h: 0, t: 0 }); Wt.t += dt;
+    const c = Wt.t % 17;
+    if (c > 9 && c - dt <= 9) { pop(S.cam + W / 2, 200, 'ACQUA ALTA!', '#7ec8ff', 1); Audio.sfx('siren'); }
+    Wt.h += ((c > 10.5 && c < 15 ? 1 : 0) - Wt.h) * Math.min(1, dt * 1.5);
+  }
+  if (S.win) return;
+  if (hz === 'vasi' && !S.boss) {   // Florence: flower pots from the windows (watch the shadow)
+    S.hzT = (S.hzT ?? 2.5) - dt;
+    if (S.hzT <= 0) { S.hzT = rand(1.8, 3.2); const P = pick(alive()); if (P) { const x = P.x + rand(-140, 140); S.fx.push({ k: 'mark', x, t: 0 }); S.foeShots.push({ id: nid(), k: 'vaso', x, y: -120, vx: 0, vy: 820, g: 0, life: 3, r: 16, shootable: true }); } }
+  }
+  if (hz === 'gru') {   // Genoa: the cranes drop crates (they stay there: break them for goodies)
+    S.hzT = (S.hzT ?? 3) - dt;
+    if (S.hzT <= 0) { S.hzT = rand(3.5, 5.5); const P = pick(alive()); if (P) { const x = clamp(P.x + rand(-160, 160), S.cam + 80, S.cam + W - 80); S.fx.push({ k: 'mark', x, t: 0 }); S.foeShots.push({ id: nid(), k: 'cassa', x, y: -160, vx: 0, vy: 700, g: 0, life: 3, r: 34, keep: true }); Audio.sfx('wind'); } }
+  }
+  if (hz === 'lava') {   // Etna: lava jets from the floor, they bubble before they blow
+    (LV.geysers || []).forEach((gx, i) => {
+      if (gx < S.cam - 100 || gx > S.cam + W + 100) return;
+      const c = (S.t + i * 1.3) % 4.5;
+      if (c > 3.5) for (const p of alive()) if (Math.abs(p.x - gx) < 38 && p.y > GROUND - 330) kill(p);
+      if (c > 3.5 && c - dt <= 3.5) { Audio.sfx('boom'); S.shake = Math.max(S.shake, 5); }
+    });
+  }
+}
+function drawHazardBack() {   // behind the characters: lava vents
+  if (LV.hazard !== 'lava') return;
+  (LV.geysers || []).forEach((gx, i) => {
+    if (gx < S.cam - 200 || gx > S.cam + W + 200) return;
+    const c = (S.t + i * 1.3) % 4.5;
+    g.fillStyle = '#1a0a08'; g.beginPath(); g.ellipse(gx, GROUND + 2, 44, 10, 0, 0, 7); g.fill();
+    g.fillStyle = `rgba(255,${c > 2.8 ? 120 : 70},30,${c > 2.8 ? 0.9 : 0.5})`; g.beginPath(); g.ellipse(gx, GROUND + 1, 30, 6, 0, 0, 7); g.fill();
+    if (c > 2.8 && c <= 3.5) { fxs('he_3', gx + rand(-4, 4), GROUND - 22, 44 + Math.sin(T * 40) * 8, { rot: -Math.PI / 2 }); fxs('ef_4', gx, GROUND, 70, { alpha: 0.6 }); }
+    if (c > 3.5) for (let k = 0; k < 4; k++) if (!fxs('he_3', gx + rand(-3, 3), GROUND - 50 - k * 72, 120 + Math.sin(T * 30 + k) * 10, { rot: -Math.PI / 2 })) { g.fillStyle = '#ff7a2a'; g.fillRect(gx - 30, GROUND - 330, 60, 330); break; }
+  });
+}
+function drawHazardFront() {   // in front: the high water
+  if (LV.hazard !== 'acqua' || !S.water || S.water.h < 0.02) return;
+  const y = waterY();
+  g.save(); g.globalAlpha = 0.5 * Math.min(1, S.water.h * 3); g.fillStyle = '#2d5fa8'; g.fillRect(S.cam, y, W, H - y);
+  g.globalAlpha = 0.85 * Math.min(1, S.water.h * 3); g.strokeStyle = '#bfe4ff'; g.lineWidth = 3; g.beginPath();
+  for (let x = 0; x <= W; x += 20) g.lineTo(S.cam + x, y + Math.sin((x + S.t * 80) / 40) * 4);
+  g.stroke(); g.restore();
+}
+function drawBelt(x, pw, py, dir) {   // Turin: the conveyor strip on top of the walkway
+  g.save(); g.beginPath(); g.rect(x + 10, py - 3, pw - 20, 10); g.clip();
+  g.fillStyle = '#2a2a30'; g.fillRect(x + 10, py - 3, pw - 20, 10);
+  const off = ((S.t * 120 * dir) % 24 + 24) % 24;
+  g.fillStyle = '#ffd35a'; for (let k = -24; k < pw; k += 24) { const cx = x + k + off; g.beginPath(); g.moveTo(cx, py - 2); g.lineTo(cx + 8 * dir, py + 2); g.lineTo(cx, py + 6); g.fill(); }
+  g.restore();
 }
 function nextMission() {
+  SAVE.max = Math.max(SAVE.max, Math.min(7, MI + 1)); saveGame();
   if (MI < MISSIONS.length - 1) startBrief(MI + 1);
-  else { mode = 'reveal'; rv = { i: 0, t: 0 }; Audio.playSong(1); }
+  else { mode = 'reveal'; rv = { i: 0, t: 0 }; Audio.playSong(0, 'finale'); }
 }
 
 /* ---------------- drawing ---------------- */
@@ -718,17 +779,23 @@ function drawBack() {
   g.fillStyle = 'rgba(8,6,14,.18)'; g.fillRect(0, 0, W, H);
   // the street of the background is the ground: just a shade where the feet go
   const gr = g.createLinearGradient(0, GROUND - 30, 0, H); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.35)'); g.fillStyle = gr; g.fillRect(0, GROUND - 30, W, H - GROUND + 30);
-  for (const [px, pw, py] of PLATFORMS) { const x = px - S.cam; if (x <= W && x + pw >= 0) drawPlatform(x, pw, py, PSTYLE[M.bg] || 'marmo', own ? M.bg : 'roma'); }
+  for (const P of PLATFORMS) {
+    const [px, pw, py] = P; let x = px - S.cam, dy = 0, a = 1;
+    if (x > W || x + pw < 0) continue;
+    if (P.gone) { if (P.goneT < 1) dy = P.goneT * P.goneT * 700; else if (P.goneT > 3.8) a = (P.goneT - 3.8) / 0.7; else continue; if (P.goneT < 1) a = 1 - P.goneT; }
+    else if (P.shake > 0) x += rand(-3, 3) * Math.min(1, P.shake * 2);
+    g.save(); g.globalAlpha = a; drawPlatform(x, pw, py + dy, PSTYLE[M.bg] || 'marmo', own ? M.bg : 'roma'); g.restore();
+    if (P.belt && !P.gone) drawBelt(x, pw, py, P.belt);
+  }
 }
 /* the platforms change with the city: marble, wooden pier, iron girder, snowy planks */
-const DECO_X = [380, 1640, 2760, 3700, 4760, 5760, 6760, 7700];
 const PSTYLE = { roma: 'marmo', firenze: 'marmo', stretto: 'marmo', venezia: 'legno', genova: 'legno', torino: 'ferro', etna: 'ferro', dolomiti: 'neve' };
 /* the painted platforms (tools/build_piatt.py): two poles down to the street, then the slab,
    whose ends keep their shape while the middle stretches to the width of the platform */
 const SLAB_SY = 0.85, POLE_S = 0.8;
 function drawPiatt(city, x, pw, py) {
   const A = window.ATLAS.piatt, img = IMG.piatt, slab = A[`${city}_${pw < 300 && A[`${city}_corta`] ? 'corta' : 'lunga'}`], pole = A[`${city}_palo`];
-  if (pole) {
+  if (pole && GROUND - py > 4) {
     const [sx, sy, sw, sh] = pole, w = sw * POLE_S, need = GROUND - py;
     for (const cx of [x + 26 + w / 2, x + pw - 26 - w / 2]) {
       // the foot of the pole stands on the street; if the pole is too short it is stretched, if too long its top is hidden
@@ -832,6 +899,8 @@ function fxShot(k, s, w, nat = -1, opt = {}) {
 }
 const ESPR = { ray: ['en_0', 58], orb: ['en_1', 58], spark: ['en_2', 50], shout: ['en_3', 52, 1], dbomb: ['en_4', 38, 0], gear: ['en_6', 50, 1], snow: ['en_7', 46], ball: ['en_8', 124, -1], torp: ['en_9', 92], drop: ['en_10', 42], crys: ['en_11', 56], cball: ['en_12', 42, 1], spear: ['en_0', 58] };
 function drawFoeShotFx(s) {
+  if (s.k === 'vaso') { const f = window.ATLAS.piatt && window.ATLAS.piatt.firenze_deco; if (f && IMG.piatt) { spr('piatt', 'firenze_deco', s.x, s.y + 24, { scale: 64 / f[2], rot: Math.sin(S.t * 8) * 0.3 }); return true; } return false; }
+  if (s.k === 'cassa') { g.strokeStyle = '#3a2410'; g.lineWidth = 3; g.beginPath(); g.moveTo(s.x, s.y - 500); g.lineTo(s.x, s.y - 30); g.stroke(); return fxs('obj_6', s.x, s.y + 34, 92); }
   if (s.k === 'shield') return fxs('en_5', s.x, s.y, 100, { sx: Math.cos(s.spin) * 0.5 + 0.6, rot: s.spin * 0.2 });
   if (s.k === 'beam') {
     if (s.t < 0.7) return false;   // the flickering warning line stays
@@ -935,6 +1004,7 @@ function draw() {
   // the city's scenery objects (from its platform sheet), on the street behind everyone
   const city = IMG[MISSIONS[MI].bg] ? MISSIONS[MI].bg : 'roma';
   if (IMG.piatt && window.ATLAS.piatt && window.ATLAS.piatt[`${city}_deco`]) DECO_X.forEach((dx, i) => { if (dx > S.cam - 300 && dx < S.cam + W + 300) spr('piatt', `${city}_deco`, dx, GROUND + 6, { scale: 0.75, face: i % 2 ? -1 : 1 }); });
+  drawHazardBack();
   // props
   for (const o of S.props) if (o.hp > 0) { const ox = o.x + (o.shake > 0 ? rand(-3, 3) : 0); if (!fxs(o.k === 'barrel' ? 'obj_7' : 'obj_6', ox, o.y, o.k === 'barrel' ? 76 : 96)) spr('items', o.k, ox, o.y, { scale: 1.6 }); }
   // prisoners: pris 0-3 legati · 4-7 liberi
@@ -973,7 +1043,7 @@ function draw() {
   // enemies
   for (const e of S.enemies) {
     if (e.st === 'dead' && e.t > 0.9 && Math.floor(T * 16) % 2) continue;
-    drawEnemy(e);
+    if (e.mirage) { g.save(); g.globalAlpha = 0.42 + Math.sin(T * 6 + e.id) * 0.16; drawEnemy(e); g.restore(); } else drawEnemy(e);
   }
   drawBoss();
   // players
@@ -997,6 +1067,7 @@ function draw() {
     else { g.fillStyle = WCOL[s.w]; if (s.vy && !s.vx) g.fillRect(s.x - 2, s.y - 9, 4, 18); else g.fillRect(s.x - 9, s.y - 2, 18, 4); }
   }
   for (const s of S.foeShots) drawFoeShot(s);
+  drawHazardFront();
   for (const b of S.bombs) { if (fxs('obj_5', b.x, b.y, 32, { rot: b.rot })) continue; g.save(); g.translate(b.x, b.y); g.rotate(b.rot); g.fillStyle = '#3a4a2a'; g.fillRect(-8, -10, 16, 20); g.fillStyle = '#c8d2dc'; g.fillRect(-3, -14, 6, 5); g.restore(); }
   // effects
   for (const f of S.fx) {
@@ -1021,14 +1092,16 @@ function draw() {
 function hudFx(p, i) {
   const x = i ? W - 310 : 10, col = ROSTER[p.hero].color, ink = '#3a2410';
   fxBox('ui_0', x, 4, 300, 104);
-  ptxt(`${i + 1}P ${ROSTER[p.hero].name}`, x + 36, 44, 11, col);
+  const face = fxs(`rit_${p.hero}`, x + 24, 58, 62), o = face ? 26 : 0;
+  ptxt(`${i + 1}P ${ROSTER[p.hero].name}`, x + 36 + o, 44, 11, col);
   ptxt(String(p.score).padStart(7, '0'), x + 266, 44, 11, ink, 'right', false);
-  if (p.out) { if (Math.floor(T * 2) % 2) ptxt('FUOCO PER CONTINUARE', x + 36, 74, 9, ink, 'left', false); return; }
+  if (p.out) { if (Math.floor(T * 2) % 2) ptxt('FUOCO PER CONTINUARE', x + 36 + o, 74, 9, ink, 'left', false); return; }
   const w = S.veh.rider === p ? null : p.w;
-  ptitle(w || 'V', x + 50, 80, 20, '#ffffff', w ? WCOL[w] : '#ff5b4f');
-  ptxt(w ? (p.ammo === Infinity ? 'INF.' : String(p.ammo)) : `${Math.max(0, S.veh.hp)}/10`, x + 72, 76, 10, ink, 'left', false);
-  fxs('ui_4', x + 150, 70, 24); ptxt(String(p.bombs), x + 166, 76, 10, ink, 'left', false);
-  for (let k = 0; k < p.lives; k++) fxs('ui_7', x + 214 + k * 20, 70, 18);
+  ptitle(w || 'V', x + 50 + o, 80, 20, '#ffffff', w ? WCOL[w] : '#ff5b4f');
+  ptxt(w ? (p.ammo === Infinity ? 'INF.' : String(p.ammo)) : `${Math.max(0, S.veh.hp)}/10`, x + 70 + o, 76, 10, ink, 'left', false);
+  fxs('ui_4', x + 150 + o, 70, 22); ptxt(String(p.bombs), x + 164 + o, 76, 10, ink, 'left', false);
+  const n = p.lives, step = n > 3 ? 12 : 17;
+  for (let k = 0; k < n; k++) fxs('ui_7', x + 262 - (n - 1 - k) * step, 70, n > 3 ? 13 : 16);
 }
 function drawHUD() {
   S.players.forEach((p, i) => {
@@ -1053,23 +1126,90 @@ function drawHUD() {
   else if (B && !B.dead) { panel(W / 2 - 260, H - 60, 520, 44, '#ffc052'); ptxt(CAPI[B.id].name, W / 2 - 244, H - 40, 9, '#ffe0a0'); bar(W / 2 - 244, H - 32, 488, 10, B.hp / B.max, '#ff6a4a'); }
   if (S.banner) { const k = clamp(Math.min(S.banner.t, 3 - S.banner.t) * 2, 0, 1); g.globalAlpha = k; const rib = fxBox('ui_5', W / 2 - 400, 206, 800, 170); ptitle(S.banner.a, W / 2, rib ? 290 : 300, rib ? 32 : 40, '#fff6d6', '#ff6a3a'); ptxt(S.banner.b, W / 2, rib ? 406 : 344, 12, '#e8eef4', 'center'); g.globalAlpha = 1; }
   if (S.win) { ptitle('MISSIONE COMPLETATA!', W / 2, 300, 44, '#fff6d6', '#7bf0b1'); S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 360 + i * 30, 11, ROSTER[p.hero].color, 'center')); }
-  ptxt('PROVA 0.13', W - 16, H - 10, 7, '#56687a', 'right');
+  ptxt('PROVA 0.14', W - 16, H - 10, 7, '#56687a', 'right');
+}
+
+/* ---------------- save, difficulty, records ---------------- */
+const GAME_NAME = ['MAMMA MIA,', 'I MARZIANI!'];
+const DIFFIC = [{ name: 'FACILE', lives: 5, foe: 0.7, boss: 0.75 }, { name: 'NORMALE', lives: 3, foe: 1, boss: 1 }, { name: 'DIFFICILE', lives: 2, foe: 1.35, boss: 1.3 }];
+const SAVE = (() => { try { return Object.assign({ max: 0, diff: 1, record: [] }, JSON.parse(localStorage.getItem('salvataggio') || '{}')); } catch (e) { return { max: 0, diff: 1, record: [] }; } })();
+function saveGame() { try { localStorage.setItem('salvataggio', JSON.stringify(SAVE)); } catch (e) {} }
+const DK = () => DIFFIC[SAVE.diff] || DIFFIC[1];
+/* Bruno joins in Florence, Alba on the Dolomites: once met, they stay in the roster */
+const UNLOCK = [0, 0, 2, 5];
+const heroOpen = (h, mi) => UNLOCK[h] <= Math.max(SAVE.max, mi);
+function nextHero(h, dir, mi) { for (let k = 1; k <= ROSTER.length; k++) { const n = (h + dir * k + ROSTER.length * 4) % ROSTER.length; if (heroOpen(n, mi)) return n; } return h; }
+const teamScore = () => (S ? S.players.reduce((a, p) => a + p.score, 0) : 0);
+let nm = null;
+function finishRun(next) {
+  const sc = teamScore(), rec = SAVE.record;
+  if (sc > 0 && (rec.length < 8 || sc > rec[rec.length - 1].s)) { nm = { l: [0, 0, 0], i: 0, s: sc, next }; mode = 'nome'; Audio.sfx('fanfara'); }
+  else mode = next;
+}
+const ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ.!';
+function tickName() {
+  for (const d of DEVICES) {
+    const c = inputOf(d);
+    if (c.pressed.u) { nm.l[nm.i] = (nm.l[nm.i] + 1) % ABC.length; Audio.sfx('select'); }
+    if (c.pressed.d) { nm.l[nm.i] = (nm.l[nm.i] + ABC.length - 1) % ABC.length; Audio.sfx('select'); }
+    if (c.pressed.l && nm.i > 0) nm.i--;
+    if (c.pressed.r || c.pressed.fire || c.pressed.jump) {
+      if (nm.i < 2) { nm.i++; Audio.sfx('select'); }
+      else {
+        SAVE.record.push({ n: nm.l.map((k) => ABC[k]).join(''), s: nm.s, m: MI + 1, d: SAVE.diff });
+        SAVE.record.sort((a, b) => b.s - a.s); SAVE.record.length = Math.min(8, SAVE.record.length); saveGame();
+        mode = nm.next; nm = null; Audio.sfx('confirm'); return;
+      }
+    }
+  }
+}
+function drawName() {
+  g.fillStyle = '#04070f'; g.fillRect(0, 0, W, H);
+  fxBox('ui_5', W / 2 - 400, 90, 800, 170);
+  ptitle('NUOVO RECORD!', W / 2, 180, 40, '#fff6d6', '#ff6a3a');
+  ptxt(`${nm.s} PUNTI`, W / 2, 300, 16, '#ffd35a', 'center');
+  nm.l.forEach((k, i) => {
+    const x = W / 2 + (i - 1) * 110;
+    ptitle(ABC[k], x, 440, 64, '#ffffff', i === nm.i ? '#ff5b4f' : '#56687a');
+    if (i === nm.i && Math.floor(T * 3) % 2) { fxs('ui_6', x, 360, 30); fxs('ui_6', x, 500, 30); }
+  });
+  ptxt('SU/GIU: LETTERA · DESTRA O FUOCO: AVANTI · SINISTRA: INDIETRO', W / 2, 600, 10, '#9fb4c8', 'center');
+}
+function drawRecords(x, y, w) {
+  if (!fxBox('ui_0', x - 24, y - 44, w + 48, 420)) panel(x, y, w, 300, '#ffc052');
+  ptitle('RECORD', x + w / 2, y - 34, 18, '#ffffff', '#ff5b4f');
+  const R = SAVE.record;
+  if (!R.length) ptxt('ANCORA NESSUNO!', x + w / 2, y + 100, 9, '#5a3a20', 'center', false);
+  R.slice(0, 8).forEach((r, i) => {
+    ptxt(`${i + 1}. ${r.n}`, x + 30, y + 84 + i * 24, 9, '#3a2410', 'left', false);
+    ptxt(String(r.s), x + w - 30, y + 84 + i * 24, 9, '#6a2a10', 'right', false);
+  });
 }
 
 /* ---------------- the professor's briefing ---------------- */
+const SPEAK = { gufo: [4, 'PROF. GUFO'], remo: [0, 'REMO'], nina: [1, 'NINA'], bruno: [2, 'BRUNO'], alba: [3, 'ALBA'] };
+const JOIN = {
+  2: [['bruno', 'Ehi! Firenze è casa mia: da qui vengo anch\'io, e il mio trombone pure!'], ['gufo', 'Bruno si unisce alla squadra! (Sinistra e destra per cambiare eroe.)']],
+  5: [['alba', 'Finalmente! Queste montagne le conosco come le mie corna. Vi faccio strada io.'], ['gufo', 'Alba si unisce alla squadra! (Sinistra e destra per cambiare eroe.)']],
+};
+function briefLines(mi) { return [...MISSIONS[mi].brief.map((t) => ['gufo', t]), ...(JOIN[mi] || [])]; }
 function startBrief(mi, fresh = false) {
   const slots = S ? S.players.map((p) => ({ dev: p.dev, hero: p.hero })) : sel.slots.map((s) => ({ dev: s.dev, hero: s.hero }));
-  brief = { mi, line: 0, t: 0, slots, keep: S && !fresh ? S.players : null };
-  MI = mi; mode = 'brief'; Audio.playSong(0);
+  brief = { mi, line: 0, t: 0, slots, keep: S && !fresh ? S.players : null, lines: briefLines(mi) };
+  MI = mi; mode = 'brief'; Audio.playSong(0, 'gufo');
 }
-function briefPress() { for (const d of DEVICES) { const c = inputOf(d); if (c.pressed.fire || c.pressed.jump || c.pressed.start) return true; } return false; }
 function tickBrief(dt) {
   brief.t += dt;
-  const lines = MISSIONS[brief.mi].brief, full = lines[brief.line].length / 45 + 0.2;
-  if (briefPress()) {
-    if (brief.t < full) brief.t = full;
-    else if (brief.line < lines.length - 1) { brief.line++; brief.t = 0; Audio.sfx('select'); }
-    else { newGame(brief.slots, brief.mi, brief.keep); mode = 'play'; Audio.sfx('confirm'); }
+  const L = brief.lines, full = L[brief.line][1].length / 45 + 0.2;
+  // each player can change hero here, among those already met
+  for (const s of brief.slots) {
+    const c = inputOf(s.dev);
+    if (c.pressed.l || c.pressed.r) { const n = nextHero(s.hero, c.pressed.l ? -1 : 1, brief.mi); if (n !== s.hero) { s.hero = n; Audio.sfx('select'); } }
+    if (c.pressed.fire || c.pressed.jump || c.pressed.start) {
+      if (brief.t < full) brief.t = full;
+      else if (brief.line < L.length - 1) { brief.line++; brief.t = 0; Audio.sfx('select'); if (L[brief.line][0] !== 'gufo') Audio.sfx('boing'); }
+      else { newGame(brief.slots, brief.mi, brief.keep); mode = 'play'; Audio.sfx('confirm'); return; }
+    }
   }
 }
 function drawCityBack(bg, tint, dim) {
@@ -1079,32 +1219,38 @@ function drawCityBack(bg, tint, dim) {
   g.fillStyle = `rgba(4,6,14,${dim})`; g.fillRect(0, 0, W, H);
 }
 function drawBrief() {
-  const M = MISSIONS[brief.mi], lines = M.brief;
+  const M = MISSIONS[brief.mi], L = brief.lines, [who] = L[brief.line];
   drawCityBack(M.bg, M.tint, 0.55);
-  ptitle(`MISSIONE ${brief.mi + 1}`, W / 2, 110, 40, '#fff6d6', '#ff6a3a');
-  ptxt(`${M.city} · ${M.place}`, W / 2, 150, 12, '#f2e2c0', 'center');
-  // gufo 0 in piedi · 1 indica · 2 ride · 3 si aggiusta gli occhiali
-  const typing = brief.t < lines[brief.line].length / 45;
-  const gf = typing ? [1, 3, 2][brief.line % 3] : 0;
-  spr('arte', `gufo_${gf}`, 250, 600, { scale: 1.9, sy: 1 + Math.sin(T * 4) * 0.02 });
+  const rib = fxBox('ui_5', W / 2 - 330, 40, 660, 140);
+  ptitle(`MISSIONE ${brief.mi + 1}`, W / 2, rib ? 112 : 110, 34, '#fff6d6', '#ff6a3a');
+  ptxt(`${M.city} · ${M.place}`, W / 2, 200, 12, '#f2e2c0', 'center');
+  const typing = brief.t < L[brief.line][1].length / 45;
+  const [ri, rname] = SPEAK[who];
+  // the one who speaks: the painted portrait, or the owl sprite
+  if (!fxs(`rit_${ri}`, 230, 420 + Math.sin(T * 4) * 3, 300)) { const gf = typing ? [1, 3, 2][brief.line % 3] : 0; spr('arte', `gufo_${gf}`, 250, 600, { scale: 1.9 }); }
   panel(430, 230, 800, 330, '#ffc052');
-  txt('PROF. GUFO', 460, 270, 20, '#ffd35a');
+  txt(rname, 460, 270, 20, who === 'gufo' ? '#ffd35a' : ROSTER[ri].color);
   let y = 320;
-  lines.forEach((l, i) => {
-    if (i > brief.line) return;
+  const from = Math.max(0, brief.line - 2);
+  L.forEach(([w, l], i) => {
+    if (i > brief.line || i < from) return;
     const shown = i < brief.line ? l : l.slice(0, Math.floor(brief.t * 45));
     for (const row of wrapText(shown, 740, 22)) { txt(row, 460, y, 22, i === brief.line ? '#fff6e6' : '#b8c4d0', 'left', 700); y += 30; }
     y += 14;
   });
-  if (!typing && Math.floor(T * 2) % 2) ptxt(brief.line < lines.length - 1 ? 'FUOCO: AVANTI' : 'FUOCO: SI PARTE!', 1210, 540, 10, '#ffe3a0', 'right');
-  // the heroes of this run
-  brief.slots.forEach((s, i) => { const R = ROSTER[s.hero]; spr('arte', `${R.id}_${R.F.i[Math.floor(T * 2.5) % 2]}`, 560 + i * 170, 700, { scale: 0.8 }); });
+  if (!typing && Math.floor(T * 2) % 2) ptxt(brief.line < L.length - 1 ? 'FUOCO: AVANTI' : 'FUOCO: SI PARTE!', 1210, 540, 10, '#ffe3a0', 'right');
+  // the heroes of this run (left/right to change)
+  brief.slots.forEach((s, i) => {
+    const R = ROSTER[s.hero], x = 560 + i * 240;
+    spr('arte', `${R.id}_${R.F.i[Math.floor(T * 2.5) % 2]}`, x, 700, { scale: 0.8 });
+    ptxt(`< ${R.name} >`, x, 590, 10, R.color, 'center');
+  });
 }
 
 /* ---------------- the ending: who is under the helmet ---------------- */
 const REVEAL = [
   [6, 'Il Comandante barcolla, sbuffa fumo... e il casco a specchio si apre con un clic.'],
-  [7, 'Dentro non c\'è un alieno. C\'è un UOMO. Con i baffi.'],
+  [7, 'Dentro non c\'è un marziano. C\'è un UOMO. Con i baffi.'],
   [7, '«Scusate... credevamo che questo pianeta fosse disabitato.»'],
   [7, '«Il nostro è diventato troppo piccolo. Siamo partiti a cercarne un altro.»'],
   [7, 'Remo lo guarda a lungo. Poi gli porge una sedia: «Siediti. Hai fame?»'],
@@ -1114,15 +1260,21 @@ function tickReveal(dt) {
   const full = REVEAL[rv.i][1].length / 40 + 0.3;
   if (briefPress()) {
     if (rv.t < full) rv.t = full;
-    else if (rv.i < REVEAL.length - 1) { rv.i++; rv.t = 0; if (rv.i === 1) { Audio.sfx('morph'); } }
-    else { mode = 'end'; Audio.sfx('team'); }
+    else if (rv.i < REVEAL.length - 1) { rv.i++; rv.t = 0; if (rv.i === 1) Audio.sfx('boing'); }
+    else { Audio.sfx('team'); SAVE.max = 7; SAVE.won = true; saveGame(); finishRun('end'); }
   }
 }
+function briefPress() { for (const d of DEVICES) { const c = inputOf(d); if (c.pressed.fire || c.pressed.jump || c.pressed.start) return true; } return false; }
 function drawReveal() {
-  drawCityBack('etna', MISSIONS[7].tint, 0.6);
-  const [f, line] = REVEAL[rv.i];
-  const sh = rv.i === 0 && rv.t < 1.5 ? rand(-3, 3) : 0;
-  spr('capi', `comand_${f}`, W / 2 + sh, 470, { scale: 1.1, face: -1 });
+  const scene = rv.i >= 1 && IMG.scena_rivelazione;
+  if (scene) { g.drawImage(IMG.scena_rivelazione, 0, 0, W, H); g.fillStyle = 'rgba(4,6,14,.25)'; g.fillRect(0, 0, W, H); }
+  else {
+    drawCityBack('etna', MISSIONS[7].tint, 0.6);
+    const [f] = REVEAL[rv.i];
+    const sh = rv.i === 0 && rv.t < 1.5 ? rand(-3, 3) : 0;
+    spr('capi', `comand_${f}`, W / 2 + sh, 470, { scale: 1.1, face: -1 });
+  }
+  const line = REVEAL[rv.i][1];
   panel(140, 520, 1000, 150, '#ffc052');
   const rows = wrapText(line.slice(0, Math.floor(rv.t * 40)), 940, 24);
   rows.forEach((r, i) => txt(r, 170, 570 + i * 34, 24, '#fff6e6', 'left', 700));
@@ -1130,35 +1282,58 @@ function drawReveal() {
 }
 
 /* ---------------- title and character select ---------------- */
+const tsel = { row: 0, mi: 0 };
 function tickTitle() {
   for (const d of DEVICES) {
     const c = inputOf(d);
-    if (mode === 'title' && (c.pressed.fire || c.pressed.start || c.pressed.jump)) { mode = 'select'; sel = { slots: [{ dev: d, hero: 0, ready: false }] }; Audio.sfx('confirm'); return; }
-    if (mode === 'select') {
+    if (mode === 'title') {
+      const rows = SAVE.max > 0 ? 3 : 2;   // PLAY · (MISSION) · DIFFICULTY
+      if (c.pressed.u) { tsel.row = (tsel.row + rows - 1) % rows; Audio.sfx('select'); }
+      if (c.pressed.d) { tsel.row = (tsel.row + 1) % rows; Audio.sfx('select'); }
+      const what = tsel.row === 0 ? 'gioca' : rows === 3 && tsel.row === 1 ? 'missione' : 'diff';
+      const dx = c.pressed.r ? 1 : c.pressed.l ? -1 : 0;
+      if (dx && what === 'missione') { tsel.mi = clamp(tsel.mi + dx, 0, SAVE.max); Audio.sfx('select'); }
+      if (dx && what === 'diff') { SAVE.diff = clamp(SAVE.diff + dx, 0, 2); saveGame(); Audio.sfx('select'); }
+      if (c.pressed.fire || c.pressed.start || c.pressed.jump) {
+        mode = 'select';
+        sel = { slots: [{ dev: d, hero: 0, ready: false }] }; Audio.sfx('confirm'); return;
+      }
+    } else if (mode === 'select') {
       let s = sel.slots.find((q) => q.dev === d);
       if (!s && sel.slots.length < 2 && (c.pressed.fire || c.pressed.jump)) { sel.slots.push({ dev: d, hero: 1, ready: false }); Audio.sfx('confirm'); continue; }
       if (!s) continue;
       if (!s.ready) {
-        if (c.pressed.l) { s.hero = (s.hero + ROSTER.length - 1) % ROSTER.length; Audio.sfx('select'); }
-        if (c.pressed.r) { s.hero = (s.hero + 1) % ROSTER.length; Audio.sfx('select'); }
+        if (c.pressed.l) { s.hero = nextHero(s.hero, -1, tsel.mi); Audio.sfx('select'); }
+        if (c.pressed.r) { s.hero = nextHero(s.hero, 1, tsel.mi); Audio.sfx('select'); }
         if (c.pressed.fire || c.pressed.jump) { s.ready = true; Audio.sfx('confirm'); }
       } else if (c.pressed.bomb) s.ready = false;
-      if ((c.pressed.start) && sel.slots.every((q) => q.ready)) { S = null; startBrief(0); return; }
+      if (c.pressed.start && sel.slots.every((q) => q.ready)) { S = null; startBrief(tsel.mi); return; }
     }
   }
   if (mode === 'select' && sel.slots.length && sel.slots.every((q) => q.ready) && !sel.go) sel.go = T;
-  if (mode === 'select' && sel.go && T - sel.go > 1.2) { S = null; startBrief(0); }
+  if (mode === 'select' && sel.go && T - sel.go > 1.2) { S = null; startBrief(tsel.mi); }
   if (mode === 'select' && sel.go && !sel.slots.every((q) => q.ready)) sel.go = null;
 }
+function drawGameName(y, big) {
+  if (IMG.logo) { const s = Math.min(560 / IMG.logo.width, 300 / IMG.logo.height) * big; g.drawImage(IMG.logo, W / 2 - IMG.logo.width * s / 2, y - IMG.logo.height * s * 0.55, IMG.logo.width * s, IMG.logo.height * s); return; }
+  if (IMG.stemma) { const s = Math.min(560 / IMG.stemma.width, 300 / IMG.stemma.height) * big; g.drawImage(IMG.stemma, W / 2 - IMG.stemma.width * s / 2, y - IMG.stemma.height * s * 0.55, IMG.stemma.width * s, IMG.stemma.height * s); }
+  ptitle(GAME_NAME[0], W / 2, y - 44 * big, 34 * big, '#fff6d6', '#e8483a');
+  ptitle(GAME_NAME[1], W / 2, y + 30 * big, 66 * big, '#fff6d6', '#e8483a');
+}
 function drawTitle() {
-  drawCityBack('roma', null, 0.55);
-  ptitle('STIVALE', W / 2, 200, 84, '#fff6d6', '#e8483a');
-  ptxt('TITOLO PROVVISORIO · 8 MISSIONI · 1-2 GIOCATORI', W / 2, 250, 11, '#f2e2c0', 'center');
+  if (IMG.scena_arrivo) { g.drawImage(IMG.scena_arrivo, 0, 0, W, H); g.fillStyle = 'rgba(4,6,14,.45)'; g.fillRect(0, 0, W, H); } else drawCityBack('roma', null, 0.55);
+  drawGameName(150, 1);
   if (mode === 'title') {
-    ROSTER.forEach((R, i) => spr('arte', `${R.id}_${i % 2 ? R.F.w : R.F.i[Math.floor(T * 2.5 + i) % 2]}`, W / 2 + (i - 1.5) * 190, 520, { scale: 1.05, sy: 1 + Math.sin(T * 5 + i) * 0.03 }));
-    if (Math.floor(T * 2) % 2) ptxt('PREMI FUOCO PER INIZIARE', W / 2, 600, 14, '#ffe3a0', 'center');
-    ptxt('1P: FRECCE · J FUOCO · K SALTO · L GRANATA    2P: WASD · F FUOCO · G SALTO · H GRANATA    PAD: X FUOCO · A SALTO · B GRANATA', W / 2, 660, 8, '#9fb4c8', 'center');
-    ptxt('SU + FUOCO: SPARA IN ALTO · IN ARIA GIU + FUOCO: SPARA IN BASSO · GIU: ACCOVACCIATI · SALTA SULLA VESPONA PER SALIRCI', W / 2, 684, 8, '#9fb4c8', 'center');
+    ROSTER.forEach((R, i) => { if (!heroOpen(i, 0)) return; spr('arte', `${R.id}_${i % 2 ? R.F.w : R.F.i[Math.floor(T * 2.5 + i) % 2]}`, 250 + i * 150, 560, { scale: 0.95, sy: 1 + Math.sin(T * 5 + i) * 0.03 }); });
+    const rows = SAVE.max > 0 ? [['GIOCA', ''], ['MISSIONE', `${tsel.mi + 1} ${MISSIONS[tsel.mi].city}`], ['DIFFICOLTA', DK().name]] : [['GIOCA', ''], ['DIFFICOLTA', DK().name]];
+    rows.forEach(([a, b], i) => {
+      const y = 262 + i * 40, on = tsel.row === i;
+      ptitle(b ? `${a}: < ${b} >` : a, 470, y, on ? 20 : 15, '#ffffff', on ? '#ff5b4f' : '#56687a');
+    });
+    if (Math.floor(T * 2) % 2) ptxt('PREMI FUOCO', 470, 262 + rows.length * 40 + 4, 12, '#ffe3a0', 'center');
+    drawRecords(900, 250, 300);
+    ptxt('1P: FRECCE · J FUOCO · K SALTO · L GRANATA    2P: WASD · F FUOCO · G SALTO · H GRANATA    PAD: X FUOCO · A SALTO · B GRANATA', W / 2, 670, 8, '#9fb4c8', 'center');
+    ptxt('SU + FUOCO: SPARA IN ALTO · IN ARIA GIU + FUOCO: SPARA IN BASSO · GIU: ACCOVACCIATI · SALTA SULLA VESPONA PER SALIRCI', W / 2, 692, 8, '#9fb4c8', 'center');
     return;
   }
   // select
@@ -1166,24 +1341,29 @@ function drawTitle() {
     const x = i ? 900 : 380, h = ROSTER[s.hero];
     panel(x - 200, 300, 400, 390, h.color);
     const f = s.ready ? h.F.w : h.F.i[Math.floor(T * 2.5) % 2];
-    spr('arte', `${h.id}_${f}`, x, 600, { scale: 1.35 });
+    if (!fxs(`rit_${s.hero}`, x, 470, 210)) spr('arte', `${h.id}_${f}`, x, 600, { scale: 1.35 });
+    else spr('arte', `${h.id}_${f}`, x + 120, 620, { scale: 0.7 });
     ptitle(`< ${h.name} >`, x, 350, 24, '#ffffff', h.color);
     ptxt(h.desc, x, 636, 8, '#e8eef4', 'center');
     ptxt(s.ready ? 'PRONTO!' : 'FUOCO: CONFERMA', x, 670, 9, s.ready ? '#7bf0b1' : '#ffe3a0', 'center');
   });
   if (sel.slots.length < 2) ptxt('2P: PREMI FUOCO PER ENTRARE', 900, 500, 11, '#9fb4c8', 'center');
+  const locked = ROSTER.filter((_, i) => !heroOpen(i, tsel.mi)).map((R) => R.name);
+  if (locked.length) ptxt(`${locked.join(' E ')}: LI INCONTRI PIU AVANTI...`, W / 2, 285, 9, '#ffd35a', 'center');
 }
 function drawEnd(win) {
-  if (win) drawCityBack('roma', null, 0.72); else { g.fillStyle = '#04070f'; g.fillRect(0, 0, W, H); }
-  ptitle(win ? 'LO STIVALE È LIBERO!' : 'GAME OVER', W / 2, 200, 44, '#fff6d6', win ? '#7bf0b1' : '#ff4a3a');
-  txt(win ? 'Animali e umani, seduti allo stesso tavolo. Fine... per ora!' : `Gli invasori hanno vinto a ${MISSIONS[MI].city}... per stavolta.`, W / 2, 260, 22, '#c8d6e4', 'center', 700);
-  if (win) ROSTER.forEach((R, i) => spr('arte', `${R.id}_${R.F.w}`, W / 2 + (i - 1.5) * 170, 470, { scale: 0.95, sy: 1 + Math.sin(T * 6 + i) * 0.04 }));
-  if (S) S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, W / 2, 540 + i * 30, 11, ROSTER[p.hero].color, 'center'));
-  if (Math.floor(T * 2) % 2) ptxt(win ? 'PREMI FUOCO PER TORNARE AL TITOLO' : 'FUOCO: RIPROVA LA MISSIONE · START: TITOLO', W / 2, 640, 12, '#ffe3a0', 'center');
+  if (win && IMG.scena_finale) { g.drawImage(IMG.scena_finale, 0, 0, W, H); g.fillStyle = 'rgba(4,6,14,.35)'; g.fillRect(0, 0, W, H); }
+  else if (win) drawCityBack('roma', null, 0.72); else { g.fillStyle = '#04070f'; g.fillRect(0, 0, W, H); }
+  ptitle(win ? 'TUTTI A TAVOLA!' : 'GAME OVER', W / 2, 120, 44, '#fff6d6', win ? '#7bf0b1' : '#ff4a3a');
+  txt(win ? 'Animali e umani, seduti allo stesso tavolo. Fine... per ora!' : `I marziani hanno vinto a ${MISSIONS[MI].city}... per stavolta.`, W / 2, 180, 22, '#c8d6e4', 'center', 700);
+  if (win && !IMG.scena_finale) ROSTER.forEach((R, i) => spr('arte', `${R.id}_${R.F.w}`, 170 + i * 150, 560, { scale: 0.85, sy: 1 + Math.sin(T * 6 + i) * 0.04 }));
+  if (S) S.players.forEach((p, i) => ptxt(`${ROSTER[p.hero].name}  ${p.score} PUNTI · ${p.kills} NEMICI · ${p.freed} PRIGIONIERI`, 420, 250 + i * 30, 10, ROSTER[p.hero].color, 'center'));
+  drawRecords(900, 250, 300);
+  if (Math.floor(T * 2) % 2) ptxt(win ? 'PREMI FUOCO PER TORNARE AL TITOLO' : 'FUOCO: RIPROVA LA MISSIONE · START: TITOLO', W / 2, 660, 12, '#ffe3a0', 'center');
   for (const d of DEVICES) {
     const c = inputOf(d);
     if (!win && c.pressed.fire && S) { startBrief(MI, true); return; }
-    if (c.pressed.start || (win && c.pressed.fire)) { mode = 'title'; S = null; return; }
+    if (c.pressed.start || (win && c.pressed.fire)) { mode = 'title'; S = null; tsel.mi = Math.min(tsel.mi, SAVE.max); return; }
   }
 }
 
@@ -1196,14 +1376,15 @@ function frame(now) {
     acc += dt;
     while (acc >= 1 / 60 && mode === 'play') { step(1 / 60); acc -= 1 / 60; }
     if (mode === 'play') draw();
-  } else if (mode === 'title' || mode === 'select') { tickTitle(); if (mode === 'title' || mode === 'select') drawTitle(); drawFilm(); }
+  } else if (mode === 'title' || mode === 'select') { if (Audio.ctx) Audio.playSong(0, 'titolo'); tickTitle(); if (mode === 'title' || mode === 'select') drawTitle(); drawFilm(); }
   else if (mode === 'brief') { tickBrief(dt); if (mode === 'brief') drawBrief(); drawFilm(); }
   else if (mode === 'reveal') { tickReveal(dt); if (mode === 'reveal') drawReveal(); drawFilm(); }
-  else { drawEnd(mode === 'end'); drawFilm(); }
+  else if (mode === 'nome') { tickName(); if (mode === 'nome') drawName(); drawFilm(); }
+  else { if (mode === 'end' && Audio.ctx) Audio.playSong(0, 'finale'); drawEnd(mode === 'end'); drawFilm(); }
   requestAnimationFrame(frame);
 }
 window.Stivale = window.Assalto = {
-  get S() { return S; }, get mode() { return mode; }, get MI() { return MI; }, newGame, step, spawnEnemy, startBrief, startBoss,
+  get S() { return S; }, get mode() { return mode; }, get MI() { return MI; }, SAVE, finishRun, newGame, step, spawnEnemy, startBrief, startBoss,
   setMode: (m) => { mode = m; }, MISSIONS, CAPI, ROSTER,
   // tests: jump straight into mission mi with these players
   play: (mi, slots) => { newGame(slots, mi); mode = 'play'; },
@@ -1215,4 +1396,7 @@ window.Stivale = window.Assalto = {
   requestAnimationFrame(frame);
   // the other cities: painted backgrounds are optional (until they exist, Rome is recoloured)
   for (const M of MISSIONS) if (M.bg !== 'roma') loadImages([[M.bg, `assets/bg/${M.bg}.jpg`]]).catch(() => {});
+  // optional painted pieces: the logo and the three scenes (they are used as soon as they exist)
+  for (const k of ['logo', 'stemma']) loadImages([[k, `assets/ui/${k}.png`]]).catch(() => {});
+  for (const k of ['scena_arrivo', 'scena_rivelazione', 'scena_finale']) loadImages([[k, `assets/scene/${k}.jpg`]]).catch(() => {});
 })();

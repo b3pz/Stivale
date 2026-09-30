@@ -1,4 +1,6 @@
-# PROGETTO "STIVALE" (titolo provvisorio) — prompt delle immagini
+# MAMMA MIA, I MARZIANI! — prompt delle immagini
+
+Per il blocco 6 (ritratti, scene, teste, logo) c'è il kit pronto: `MAMMA_MIA_kit_immagini.zip`.
 
 Corri e spara in stile arcade anni '90 + boss a fasi, disegnato come un cartone animato degli anni '30.
 Un pianeta gemello della Terra a forma di Stivale, abitato da animali, viene invaso da "alieni"

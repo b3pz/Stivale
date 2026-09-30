@@ -1,11 +1,20 @@
-# STIVALE (titolo provvisorio) — prova 0.13
+# MAMMA MIA, I MARZIANI! — prova 0.14
 Corri e spara in stile arcade con la grafica di un cartone animato degli anni '30.
 Un pianeta a forma di Stivale abitato da animali viene invaso da "alieni" in tuta spaziale… che alla fine si scoprono umani.
 Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`.
 
 ## Cosa c'è
 - **4 eroi**: Remo (tuttofare), Nina (veloce, salta più in alto), Bruno (lento ma fortissimo, 15 granate), Alba (doppio salto).
-- **8 missioni** di fila: Roma, Venezia, Firenze, Torino, Genova, Dolomiti, lo Stretto, l'Etna. Prima di ognuna il professor Gufo fa il briefing.
+- **8 missioni**, ognuna con la sua pianta e la sua trappola:
+  Roma (per imparare) · Venezia (l'acqua alta: in acqua si corre piano) · Firenze (vasi di fiori dalle finestre) ·
+  Torino (nastri trasportatori) · Genova (le gru fanno cadere casse) · Dolomiti (per terra si scivola sul ghiaccio) ·
+  lo Stretto (alcuni nemici sono miraggi) · Etna (passerelle che crollano e getti di lava).
+  Prima di ognuna il professor Gufo fa il briefing.
+- **Bruno si unisce a Firenze, Alba sulle Dolomiti**: nel briefing sinistra/destra cambia eroe.
+- **Salvataggio**: il gioco ricorda fin dove sei arrivato; dal titolo puoi ripartire da una missione già raggiunta.
+- **Difficoltà** facile (5 vite) · normale (3) · difficile (2, nemici più svelti, boss più duri).
+- **Record**: la classifica dei migliori 8 punteggi, con le iniziali.
+- **Musica anni '30** fatta dal gioco: swing, tuba, clarinetto, fisarmonica, tarantella, un tema per città. Suoni da cartone (boing, fischio, clacson).
 - **Nemici**: il soldato, il robottino a molla (scintille basse: salta), l'ufficiale col megafono (urlo alto: abbassati; urlo basso: salta),
   il legionario robot che carica, il disco volante (tiene le distanze, poi ti passa sopra e sgancia bombe).
 - **La Vespona**: saltaci sopra (o premi su). Fuoco = cannone, granata = clacson (onda d'urto), giù + salto per scendere.
@@ -25,7 +34,7 @@ Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`
 - Game over: fuoco = riprova la missione, start = titolo.
 
 ## Si gioca
-Online: https://b3pz.github.io/Stivale/ · oppure apri `index.html` con Chrome, Edge o Firefox. 1 o 2 giocatori sullo stesso computer.
+Online: https://b3pz.github.io/Stivale/ (il repository si chiama ancora Stivale) · oppure apri `index.html` con Chrome, Edge o Firefox. 1 o 2 giocatori sullo stesso computer.
 
 | | 1P tastiera | 2P tastiera | Pad |
 |---|---|---|---|
@@ -38,7 +47,9 @@ Online: https://b3pz.github.io/Stivale/ · oppure apri `index.html` con Chrome, 
 - Giù + salto su una lastra: scendi.
 - Un colpo e sei fuori, 3 vite. I boss si colpiscono meglio quando sono stanchi (le stelline sopra la testa).
 
-## Grafica che manca ancora
-- **Ritratti e scene** (blocco 6).
+## Grafica che manca ancora (facoltativa: il gioco funziona anche senza)
+Il kit con prompt e immagini da allegare è `MAMMA_MIA_kit_immagini.zip`.
+- `logo.png` o `stemma.png` → `assets/ui/` · le scene → `assets/scene/scena_arrivo.jpg`, `scena_rivelazione.jpg`, `scena_finale.jpg`
+- `teste.png` (icone di Nina, Bruno, Alba). I ritratti ci sono già.
 
 Il vecchio prototipo con i personaggi di Primal Sentinels è in `assalto/`.
