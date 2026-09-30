@@ -40,7 +40,7 @@ Il soggetto è in `SOGGETTO.md`, i prompt delle immagini in `PROMPT_IMMAGINI.md`
 - **Tre livelli speciali**:
   - dopo Torino, **la Mole Antonelliana**: si sale in verticale di piattaforma in piattaforma mentre la Catena di Montaggio gigante si arrampica da sotto e lancia ingranaggi (se ti prende perdi un cuore);
   - dopo Genova, **sott'acqua nel Golfo**: si nuota in tutte le direzioni, salto = scatto, granata = siluro; mine, pesci di latta, dischi-sommergibile, prigionieri nelle gabbie e alla fine il Sottomarino degli Abissi;
-  - dopo lo Stretto, **in volo verso l'Etna**: l'aereo tricolore visto da dietro con l'eroe in cabina, sopra un mare dipinto che ti corre incontro in prospettiva, schiva scogli e faraglioni, prendi gli anelli d'oro, abbatti i dischi e poi la Nave Madre.
+  - dopo lo Stretto, **in volo verso l'Etna**: l'aereo tricolore visto da dietro con l'eroe in cabina, sopra un mare dipinto che ti corre incontro in prospettiva, più lento e con più nemici: squadriglie di dischi che si fermano davanti a te e sparano, due mirini mostrano dove vanno i colpi (diventano rossi quando un disco è sotto tiro); schiva scogli e faraglioni, prendi gli anelli d'oro e poi abbatti la Nave Madre.
 - **Boss più chiari**: prima di ogni attacco un fumetto dice cosa arriva e cosa fare (RAGGIO ALTO: ABBASSATI!); la barra dice FASE 1 / FASE 2 - ARRABBIATO.
   Durante lo scontro ogni tanto scende **un prigioniero col paracadute**: liberalo per un'arma nuova.
   Il Comandante non fa più l'onda a terra (il disegno colpiva in alto e ingannava).

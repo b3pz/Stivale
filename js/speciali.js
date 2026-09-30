@@ -388,67 +388,104 @@ function drawMare() {
    ===================================================================== */
 const HOR = 250, NEAR = 1, FAR = 18;
 function initVolo() {
-  SP.pl.forEach((q, i) => { q.x = SP.pl.length > 1 ? (i ? 0.35 : -0.35) : 0; q.y = 0.2; });
-  SP.objs = []; SP.spawn = 1.5; SP.dist = 0; SP.len = 65;
+  SP.pl.forEach((q, i) => { q.x = SP.pl.length > 1 ? (i ? 0.45 : -0.45) : 0; q.y = 0.2; });
+  SP.objs = []; SP.spawn = 1.2; SP.wave = 2.5; SP.dist = 0; SP.len = 75; SP.nw = 0;
 }
 const proj = (x, y, z) => { const s = 1 / z; return { x: W / 2 + x * 520 * s, y: HOR + (440 + y * 180 - HOR) * s, s }; };
+const VSPEED = 6;   // how fast the world comes at you
+const DISC_HX = 0.19, DISC_HY = 0.42;   // (the vertical world unit is 180 px, the horizontal one 520 px)   // a saucer's size in world units, the same for drawing and for hits
+// is there room for a new thing here? (nothing overlapping at the same depth)
+const voloFree = (x, y, z, r = 0.45) => !SP.objs.some((o) => Math.abs(o.z - z) < 2.5 && Math.abs(o.x - x) < r && Math.abs(o.y - y) < r);
+function voloWave() {
+  // a formation of saucers: they fly in, stop at a distance, slide left and right shooting, then fly off
+  const n = 3 + Math.min(2, Math.floor(SP.nw / 3) + SAVE.diff), hold = rand(2.3, 3.6), shape = SP.nw++ % 4;
+  const cx = rand(-0.5, 0.5), cy = rand(-0.6, 0.1);
+  for (let i = 0; i < n; i++) {
+    const k = i - (n - 1) / 2;
+    const [ox, oy] = shape === 0 ? [k * 0.52, Math.abs(k) * 0.25] : shape === 1 ? [k * 0.5, 0] : shape === 2 ? [0.45 * ((i % 2) * 2 - 1), k * 0.35] : [k * 0.5, (i % 2) * 0.45];
+    SP.objs.push({ k: 'disco', x: clamp(cx + ox, -1.15, 1.15), y: clamp(cy + oy, -0.9, 0.55), z: FAR + i * 0.8, hold: hold + (i % 2) * 0.35, hp: 2 + SAVE.diff, cd: rand(1.2, 2.6), ph: rand(0, 6), st: 'in', t: 0, sw: rand(0.25, 0.5) * pick([-1, 1]) });
+  }
+}
 function stepVolo(dt) {
   SP.dist += dt;
-  for (const q of SP.pl) {
-    if (q.dead) continue;
+  const live = SP.pl.filter((q) => !q.dead);
+  for (const q of live) {
     const c = inputOf(q.p.dev);
     if (q.respawn) { q.respawn = false; q.x = 0; q.y = 0; }
     const dx = (c.r ? 1 : 0) - (c.l ? 1 : 0), dy = (c.d ? 1 : 0) - (c.u ? 1 : 0);
-    q.vx += (dx * 1.6 - q.vx) * Math.min(1, dt * 6); q.vy += (dy * 1.3 - q.vy) * Math.min(1, dt * 6);
-    q.x = clamp(q.x + q.vx * dt, -1.1, 1.1); q.y = clamp(q.y + q.vy * dt, -1, 1); q.tilt = q.vx * 0.25;
-    if (c.fire && q.cd <= 0) { q.cd = 0.14; SP.shots.push({ x: q.x, y: q.y - 0.15, z: NEAR + 0.2, by: q.p, dmg: WEAPONS[q.p.w].dmg * ROSTER[q.p.hero].dmg * (q.p.w === 'R' ? 0.6 : 1), life: 1 }); Audio.sfx('shot'); }
-    if (c.pressed.bomb && q.p.bombs > 0) { q.p.bombs--; SP.shots.push({ x: q.x, y: q.y - 0.1, z: NEAR + 0.2, by: q.p, dmg: 12, big: true, life: 1.4 }); Audio.sfx('laser'); }
+    q.vx += (dx * 1.5 - q.vx) * Math.min(1, dt * 5); q.vy += (dy * 1.2 - q.vy) * Math.min(1, dt * 5);
+    q.x = clamp(q.x + q.vx * dt, -1.1, 1.1); q.y = clamp(q.y + q.vy * dt, -0.95, 0.9);
+    q.tilt = (q.tilt || 0) + (q.vx * 0.3 - (q.tilt || 0)) * Math.min(1, dt * 8);
+    if (c.fire && q.cd <= 0) { q.cd = 0.13; SP.shots.push({ x: q.x, y: q.y - 0.15, z: NEAR + 0.3, by: q.p, dmg: WEAPONS[q.p.w].dmg * ROSTER[q.p.hero].dmg * (q.p.w === 'R' ? 0.6 : 1), life: 1.1 }); Audio.sfx('shot'); }
+    if (c.pressed.bomb && q.p.bombs > 0) { q.p.bombs--; SP.shots.push({ x: q.x, y: q.y - 0.15, z: NEAR + 0.3, by: q.p, dmg: 12, big: true, life: 1.4 }); Audio.sfx('laser'); }
   }
-  // what comes from the horizon
-  SP.spawn -= dt;
-  if (SP.spawn <= 0 && !SP.boss) {
-    SP.spawn = rand(0.45, 0.9) - SAVE.diff * 0.1;
-    const r = Math.random();
-    if (r < 0.45) SP.objs.push({ k: 'disco', x: rand(-1.1, 1.1), y: rand(-0.9, 0.6), z: FAR, hp: 2, cd: rand(1, 2), vx: rand(-0.3, 0.3) });
-    else if (r < 0.66) SP.objs.push({ k: 'scoglio', x: rand(-1.2, 1.2), y: 0.75, z: FAR, hp: 999 });
-    else if (r < 0.8) SP.objs.push({ k: 'faro', x: pick([-1, 1]) * rand(0.3, 1.0), y: 0, z: FAR, hp: 999 });
-    else if (r < 0.92) SP.objs.push({ k: 'anello', x: rand(-0.9, 0.9), y: rand(-0.7, 0.5), z: FAR, hp: 999 });
-    else SP.objs.push({ k: 'cibo', x: rand(-0.9, 0.9), y: rand(-0.6, 0.5), z: FAR, hp: 999, c: Math.floor(Math.random() * 8) });
+  // two planes never sit inside each other
+  if (live.length > 1) { const [a, b] = live; const ddx = b.x - a.x, ddy = b.y - a.y; if (Math.abs(ddx) < 0.55 && Math.abs(ddy) < 0.35) { const push = (0.55 - Math.abs(ddx)) * 0.5 * (ddx >= 0 ? 1 : -1); a.x = clamp(a.x - push, -1.1, 1.1); b.x = clamp(b.x + push, -1.1, 1.1); } }
+  // saucer formations, and now and then rocks, stacks, rings and food on the way
+  if (!SP.boss) {
+    SP.wave -= dt;
+    if (SP.wave <= 0 && SP.objs.filter((o) => o.k === 'disco').length < 7 + SAVE.diff * 2) { SP.wave = rand(3.2, 4.6) - SAVE.diff * 0.5; voloWave(); }
+    SP.spawn -= dt;
+    if (SP.spawn <= 0) {
+      SP.spawn = rand(1.1, 1.8);
+      const r = Math.random();
+      let o;
+      if (r < 0.35) o = { k: 'scoglio', x: rand(-1.1, 1.1), y: 0.75 };
+      else if (r < 0.55) o = { k: 'faro', x: pick([-1, 1]) * rand(0.4, 1.0), y: 0 };
+      else if (r < 0.85) o = { k: 'anello', x: rand(-0.9, 0.9), y: rand(-0.7, 0.5) };
+      else o = { k: 'cibo', x: rand(-0.9, 0.9), y: rand(-0.6, 0.5), c: Math.floor(Math.random() * 8) };
+      if (voloFree(o.x, o.y, FAR, o.k === 'faro' ? 0.6 : 0.45)) SP.objs.push({ ...o, z: FAR, hp: 999 });
+    }
   }
-  if (!SP.boss && SP.dist > SP.len) { SP.boss = { name: 'LA NAVE MADRE', x: 0, y: -0.4, z: 7, hp: Math.round((300 + S.players.length * 120) * DK().boss), max: 1, t: 0, cd: 2, n: 0, flash: 0 }; SP.boss.max = SP.boss.hp; pop(W / 2, 200, 'LA NAVE MADRE!', '#ff8a3a', 1); Audio.sfx('siren'); }
-  const speed = 9;
+  if (!SP.boss && SP.dist > SP.len) { SP.boss = { name: 'LA NAVE MADRE', x: 0, y: -0.4, z: 8, hp: Math.round((300 + S.players.length * 120) * DK().boss), max: 1, t: 0, cd: 2, n: 0, flash: 0 }; SP.boss.max = SP.boss.hp; pop(W / 2, 200, 'LA NAVE MADRE!', '#ff8a3a', 1); Audio.sfx('siren'); }
   for (const o of SP.objs) {
-    o.z -= speed * dt * (o.k === 'orb' ? 1.8 : 1);
-    if (o.k === 'disco') { o.x += o.vx * dt; o.cd -= dt; if (o.cd <= 0 && o.z > 4) { o.cd = rand(1.4, 2.4); SP.objs.push({ k: 'orb', x: o.x, y: o.y, z: o.z, hp: 999, tx: pick(SP.pl.filter((q) => !q.dead) || [{ x: 0 }]) }); } }
-    if (o.k === 'orb' && o.tx) { o.x += (o.tx.x - o.x) * dt * 0.8; o.y += (o.tx.y - o.y) * dt * 0.8; }
-    if (o.z < NEAR + 0.25 && o.z > NEAR - 0.3 && !o.hitDone) for (const q of SP.pl) {
-      if (q.dead) continue;
-      const close = o.k === 'faro' ? Math.abs(o.x - q.x) < 0.2 : Math.abs(o.x - q.x) < (o.k === 'scoglio' ? 0.28 : 0.2) && Math.abs(o.y - q.y) < (o.k === 'scoglio' ? 0.5 : 0.22);
+    if (o.k === 'disco') {
+      o.t += dt; o.ph += dt;
+      if (o.st === 'in') { o.z -= VSPEED * 1.4 * dt; if (o.z <= o.hold) { o.st = 'hold'; o.t = 0; } }
+      else if (o.st === 'hold') {
+        o.x = clamp(o.x + o.sw * dt, -1.1, 1.1); if (SP.objs.some((d) => d !== o && d.k === 'disco' && d.st === 'hold' && Math.abs(d.z - o.z) < 0.8 && Math.abs(d.x - o.x) < DISC_HX * 2.1 && Math.abs(d.y - o.y) < DISC_HY * 1.6)) o.sw *= -1; if (Math.abs(o.x) > 1.1) o.sw *= -1; o.y += Math.sin(o.ph * 2) * 0.1 * dt;
+        o.cd -= dt * DK().foe;
+        if (o.cd <= 0 && live.length) { o.cd = rand(2, 3.4); const T0 = pick(live); SP.objs.push({ k: 'orb', x: o.x, y: o.y, z: o.z - 0.3, hp: 999, tx: { x: T0.x, y: T0.y - 0.1 }, sx: o.x, sy: o.y, sz: o.z }); }
+        if (o.t > 6 + SAVE.diff) { o.st = 'out'; o.t = 0; }
+      } else { o.y -= 1.2 * dt; o.z += 2 * dt; if (o.y < -2.2) o.gone = true; }
+    } else if (o.k === 'orb') {
+      // flies straight at where you were when it was fired
+      o.z -= VSPEED * 1.1 * dt; const k = clamp(1 - (o.z - NEAR) / (o.sz - NEAR), 0, 1);
+      o.x = o.sx + (o.tx.x - o.sx) * k; o.y = o.sy + (o.tx.y - o.sy) * k;
+    } else o.z -= VSPEED * dt;
+    if (o.z < NEAR + 0.2 && o.z > NEAR - 0.3 && !o.hitDone && o.k !== 'disco') for (const q of live) {
+      const close = o.k === 'faro' ? Math.abs(o.x - q.x) < 0.22 : Math.abs(o.x - q.x) < (o.k === 'scoglio' ? 0.3 : 0.2) && Math.abs(o.y - q.y) < (o.k === 'scoglio' ? 0.45 : 0.2);
       if (!close) continue;
       o.hitDone = true;
       if (o.k === 'anello') { q.p.score += 500; pop(W / 2, 300, '+500', '#ffd35a'); Audio.sfx('pickup'); o.gone = true; }
       else if (o.k === 'cibo') { EX.eat(q.p, { x: W / 2, y: 400, c: o.c }); o.gone = true; }
-      else spHurt(q);
+      else { spHurt(q); if (o.k === 'orb') o.gone = true; }
     }
   }
-  SP.objs = SP.objs.filter((o) => o.z > 0.3 && !o.gone && o.hp > 0);
+  SP.objs = SP.objs.filter((o) => o.z > 0.35 && !o.gone && o.hp > 0);
   for (const s of SP.shots) {
-    s.z += 26 * dt; s.life -= dt;
-    for (const o of SP.objs) if (o.k === 'disco' && Math.abs(o.z - s.z) < 0.9 && Math.abs(o.x - s.x) < 0.22 && Math.abs(o.y - s.y) < 0.25) { o.hp -= s.dmg; s.life = 0; const P = proj(o.x, o.y, o.z); spark(P.x, P.y, '#ffe08a', 6); if (o.hp <= 0) { o.gone = true; boom(P.x, P.y, 1); if (s.by) s.by.score += 400; SAVE.stat.dischi++; } }
-    for (const o of SP.objs) if (o.k === 'orb' && Math.abs(o.z - s.z) < 0.8 && Math.abs(o.x - s.x) < 0.15 && Math.abs(o.y - s.y) < 0.15) { o.gone = true; s.life = 0; }
+    s.pz = s.z; s.z += 24 * dt; s.life -= dt;
+    for (const o of SP.objs) {
+      if (s.life <= 0) break;
+      const passed = o.z >= s.pz - 0.3 && o.z <= s.z + 0.3;
+      if (!passed) continue;
+      if (o.k === 'disco' && Math.abs(o.x - s.x) < DISC_HX * (s.big ? 1.6 : 1) && Math.abs(o.y - s.y) < DISC_HY * (s.big ? 1.6 : 1)) { o.hp -= s.dmg; s.life = 0; const P = proj(o.x, o.y, o.z); spark(P.x, P.y, '#ffe08a', 6); o.flash = 0.08; if (o.hp <= 0) { o.gone = true; boom(P.x, P.y, 1); ono(P.x, P.y - 30, 1, 0.7); if (s.by) s.by.score += 400; SAVE.stat.dischi++; } }
+      else if (o.k === 'orb' && Math.abs(o.x - s.x) < 0.14 && Math.abs(o.y - s.y) < 0.3) { o.gone = true; s.life = 0; const P = proj(o.x, o.y, o.z); spark(P.x, P.y, '#e8a8ff', 6); }
+    }
     const B = SP.boss;
-    if (B && !B.dead && s.life > 0 && Math.abs(B.z - s.z) < 1.2 && Math.abs(B.x - s.x) < 0.7 && Math.abs(B.y - s.y) < 0.4) { B.hp -= s.dmg * (s.big ? 1 : 1); B.flash = 0.05; s.life = 0; if (s.by) s.by.score += 20; const P = proj(s.x, s.y, B.z); spark(P.x, P.y, '#ffcf8a', 4); if (B.hp <= 0) spVoloBossDown(); }
+    if (B && !B.dead && s.life > 0 && B.z >= s.pz - 0.5 && B.z <= s.z + 0.5 && Math.abs(B.x - s.x) < 0.75 && Math.abs(B.y - s.y) < 0.4) { B.hp -= s.dmg; B.flash = 0.05; s.life = 0; if (s.by) s.by.score += 20; const P = proj(s.x, s.y, B.z); spark(P.x, P.y, '#ffcf8a', 4); if (B.hp <= 0) spVoloBossDown(); }
   }
+  for (const o of SP.objs) if (o.flash > 0) o.flash -= dt;
   SP.shots = SP.shots.filter((s) => s.life > 0 && s.z < FAR);
   const B = SP.boss;
   if (B && !B.dead) {
-    B.t += dt; B.x = Math.sin(B.t * 0.7) * 0.7; B.y = -0.4 + Math.sin(B.t * 1.3) * 0.15; B.flash = Math.max(0, B.flash - dt);
+    B.t += dt; B.x = Math.sin(B.t * 0.6) * 0.7; B.y = -0.45 + Math.sin(B.t * 1.1) * 0.15; B.flash = Math.max(0, B.flash - dt);
     B.cd -= dt * DK().foe;
     if (B.cd <= 0) {
-      B.cd = B.hp < B.max / 2 ? 1.4 : 2;
+      B.cd = B.hp < B.max / 2 ? 1.8 : 2.4;
       const n = B.n++ % 3;
-      if (n === 2) for (let i = 0; i < 4; i++) SP.objs.push({ k: 'disco', x: B.x + rand(-0.6, 0.6), y: B.y + rand(0, 0.5), z: B.z, hp: 2, cd: 1.2, vx: rand(-0.4, 0.4) });
-      else for (let i = -2; i <= 2; i++) SP.objs.push({ k: 'orb', x: B.x + i * 0.18, y: B.y + 0.1, z: B.z, hp: 999, tx: { x: B.x + i * 0.45, y: n ? 0.6 : -0.4 } });
+      if (n === 2) { for (let i = 0; i < 3; i++) SP.objs.push({ k: 'disco', x: clamp(B.x + (i - 1) * 0.5, -1.1, 1.1), y: B.y + 0.35, z: B.z - 0.5, hold: rand(2.6, 3.8), hp: 2, cd: 1.5, ph: rand(0, 6), st: 'in', t: 0, sw: rand(0.25, 0.45) * pick([-1, 1]) }); }
+      else for (let i = -2; i <= 2; i++) SP.objs.push({ k: 'orb', x: B.x + i * 0.2, y: B.y + 0.1, z: B.z - 0.5, sx: B.x + i * 0.2, sy: B.y + 0.1, sz: B.z - 0.5, hp: 999, tx: { x: B.x + i * 0.5, y: n ? 0.6 : -0.4 } });
       Audio.sfx('laser');
     }
   }
@@ -465,7 +502,7 @@ function drawSeaTex() {
     for (const dx of [-w, 0, w]) for (const dy of [-w, 0, w]) x.drawImage(IMG.mare_volo, dx, dy);
     SEAFAR = g.createPattern(c, 'repeat');
   }
-  const K = 240, surf = 440 + 1.15 * 180 - HOR, run = SP.t * 9;   // K: texture pixels per world unit
+  const K = 240, surf = 440 + 1.15 * 180 - HOR, run = SP.t * VSPEED;   // K: texture pixels per world unit
   for (let y = HOR; y < H; y += 2) {
     const z = surf / Math.max(1, y - HOR + 1), sc = 520 / (z * K), v0 = (z + run) * K, P = sc < 0.55 ? SEAFAR : SEAPAT;
     P.setTransform(new DOMMatrix([sc, 0, 0, sc, W / 2, y - v0 * sc]));
@@ -481,7 +518,7 @@ function drawVolo() {
   {
     const gr = g.createLinearGradient(0, 0, 0, HOR); gr.addColorStop(0, '#6a2a2a'); gr.addColorStop(1, '#f2a060'); g.fillStyle = gr; g.fillRect(0, 0, W, HOR);
     const src = IMG.cielo || IMG.etna || IMG.stretto;
-    if (src) { const sh = src.height * (IMG.cielo ? 1 : 0.68), z = 0.8 + e * 0.5, w = W * z, h = sh * w / src.width; g.drawImage(src, 0, 0, src.width, sh, (W - w) / 2, HOR - h, w, h); }
+    if (src) { const sh = src.height * (IMG.cielo ? 1 : 0.68), z = 1 + e * 0.4, w = W * z, h = sh * w / src.width; g.drawImage(src, 0, 0, src.width, sh, (W - w) / 2, HOR - h, w, h); }
     const hz = g.createLinearGradient(0, HOR - 90, 0, HOR); hz.addColorStop(0, 'rgba(255,200,150,0)'); hz.addColorStop(1, 'rgba(255,200,150,.55)'); g.fillStyle = hz; g.fillRect(0, HOR - 90, W, 90);
     if (IMG.mare_volo) drawSeaTex(); else {
     const sg = g.createLinearGradient(0, HOR, 0, H); sg.addColorStop(0, '#8ab8d0'); sg.addColorStop(0.25, '#3a7aa8'); sg.addColorStop(1, '#123a60'); g.fillStyle = sg; g.fillRect(0, HOR, W, H - HOR);
@@ -493,41 +530,61 @@ function drawVolo() {
     }
     }
   }
-  // far to near
-  const list = [...SP.objs].sort((a, b) => b.z - a.z);
+  // far to near; what has already passed the planes is drawn in front of them, fading out
+  const list = [...SP.objs].sort((a, b) => b.z - a.z), far = list.filter((o) => o.z >= NEAR), near = list.filter((o) => o.z < NEAR);
   const B = SP.boss;
-  if (B && !B.dead) { const P = proj(B.x, B.y, B.z); if (!spx('vo_11', P.x, P.y, 900 * P.s, { flash: B.flash > 0 ? 0.5 : 0 })) spr('arte', `disco_${Math.floor(T * 6) % 2}`, P.x, P.y + 130 * P.s * 3, { scale: 6 * P.s * 2, flash: B.flash > 0 ? 0.5 : 0, img: B.flash > 0 ? undefined : tinted('arte', `disco_${Math.floor(T * 6) % 2}`, '#e8b030', 'source-atop', 0.45) }); }
-  for (const o of list) {
+  if (B && !B.dead) { const P = proj(B.x, B.y, B.z); if (!spx('vo_11', P.x, P.y, 900 * P.s, { flash: B.flash > 0 ? 0.5 : 0 })) spr('arte', `disco_${Math.floor(T * 6) % 2}`, P.x, P.y + 130 * P.s * 3, { scale: 6 * P.s * 2, flash: B.flash > 0 ? 0.5 : 0 }); }
+  const drawObj = (o) => {
     const P = proj(o.x, o.y, o.z);
-    if (o.k === 'disco') spr('arte', `disco_${Math.floor(T * 6) % 2}`, P.x, P.y + 50 * P.s * 1.6, { scale: 1.6 * P.s });
+    if (o.z < 1.3) g.globalAlpha = clamp((o.z - 0.35) / 0.9, 0, 1);
+    // a shadow on the sea gives the depth
+    if (o.k === 'disco' || o.k === 'orb' || o.k === 'anello' || o.k === 'cibo') { const Q = proj(o.x, 1.15, o.z); g.fillStyle = 'rgba(0,20,40,.22)'; g.beginPath(); g.ellipse(Q.x, Q.y, 90 * P.s, 14 * P.s + 1, 0, 0, 7); g.fill(); }
+    if (o.k === 'disco') spr('arte', `disco_${Math.floor(T * 6) % 2}`, P.x, P.y + 125 * P.s, { scale: 2.1 * P.s, flash: o.flash > 0 ? 0.6 : 0 });
     else if ((o.k === 'scoglio' || o.k === 'faro') && spx(o.k === 'faro' ? 'vo_9' : 'vo_8', P.x, P.y, (o.k === 'faro' ? 420 : 300) * P.s)) {}
-    else if (o.k === 'faro') { const w = 170 * P.s, h = 900 * P.s; g.fillStyle = '#5a4034'; g.strokeStyle = '#2a1a10'; g.lineWidth = Math.max(1, 4 * P.s); g.beginPath(); g.moveTo(P.x - w / 2, P.y + h * 0.5); g.lineTo(P.x - w * 0.35, P.y - h * 0.5); g.lineTo(P.x + w * 0.3, P.y - h * 0.46); g.lineTo(P.x + w / 2, P.y + h * 0.5); g.closePath(); g.fill(); g.stroke(); }
-    else if (o.k === 'scoglio') { const w = 260 * P.s, h = 420 * P.s; g.fillStyle = '#6a5040'; g.strokeStyle = '#2a1a10'; g.lineWidth = Math.max(1, 4 * P.s); g.beginPath(); g.moveTo(P.x - w / 2, P.y + h * 0.4); g.lineTo(P.x - w * 0.3, P.y - h * 0.5); g.lineTo(P.x + w * 0.1, P.y - h * 0.6); g.lineTo(P.x + w / 2, P.y + h * 0.4); g.closePath(); g.fill(); g.stroke(); g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(P.x - w / 2, P.y + h * 0.38, w, 6 * P.s); }
+    else if (o.k === 'faro') { const w = 170 * P.s, h = 900 * P.s; g.fillStyle = '#5a4034'; g.fillRect(P.x - w / 2, P.y - h / 2, w, h); }
+    else if (o.k === 'scoglio') { const w = 260 * P.s, h = 420 * P.s; g.fillStyle = '#6a5040'; g.fillRect(P.x - w / 2, P.y - h * 0.4, w, h * 0.8); }
     else if (o.k === 'anello' && spx('vo_10', P.x, P.y, 200 * P.s)) {}
     else if (o.k === 'anello') { g.strokeStyle = '#ffd35a'; g.lineWidth = Math.max(2, 14 * P.s); g.beginPath(); g.ellipse(P.x, P.y, 90 * P.s, 110 * P.s, 0, 0, 7); g.stroke(); }
     else if (o.k === 'cibo') { const f = FXF(`cibo_${o.c}`); if (f) spr('fx', `cibo_${o.c}`, P.x, P.y + 50 * P.s, { scale: 100 * P.s / f[2] }); }
-    else if (o.k === 'orb') { g.fillStyle = '#c86aff'; g.beginPath(); g.arc(P.x, P.y, Math.max(3, 26 * P.s), 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(P.x, P.y, Math.max(1, 9 * P.s), 0, 7); g.fill(); }
+    else if (o.k === 'orb') {
+      const r = Math.max(4, 30 * P.s);
+      const gl = g.createRadialGradient(P.x, P.y, 0, P.x, P.y, r * 2.2); gl.addColorStop(0, 'rgba(230,150,255,.8)'); gl.addColorStop(1, 'rgba(200,106,255,0)'); g.fillStyle = gl; g.beginPath(); g.arc(P.x, P.y, r * 2.2, 0, 7); g.fill();
+      g.fillStyle = '#c86aff'; g.beginPath(); g.arc(P.x, P.y, r, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(P.x, P.y, r * 0.35, 0, 7); g.fill();
+    }
+    g.globalAlpha = 1;
+  };
+  far.forEach(drawObj);
+  // the shots: short streaks flying into the distance
+  for (const s of SP.shots) {
+    const A = proj(s.x, s.y, Math.max(NEAR + 0.2, s.z - 0.9)), P = proj(s.x, s.y, s.z);
+    g.strokeStyle = s.big ? '#ff5b8a' : '#fff2b0'; g.lineCap = 'round'; g.lineWidth = Math.max(2, (s.big ? 34 : 18) * P.s);
+    g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(P.x, P.y); g.stroke();
   }
-  for (const s of SP.shots) { const P = proj(s.x, s.y, s.z); g.fillStyle = s.big ? '#ff5b8a' : '#ffe08a'; g.beginPath(); g.arc(P.x, P.y, Math.max(2, (s.big ? 30 : 16) * P.s), 0, 7); g.fill(); }
-  // the flying Vespas, seen from behind
+  // the aim of each plane: two frames along the line the shots will fly (red when a saucer is on it)
   for (const q of SP.pl) {
-    if (q.dead || (q.inv > 0 && Math.floor(T * 16) % 2)) continue;
-    const P = proj(q.x, q.y, NEAR), R = ROSTER[q.p.hero];
-    if (spx(`vo_${q.hurtT > 0 ? 3 : q.tilt > 0.12 ? 1 : q.tilt < -0.12 ? 2 : 0}`, P.x, P.y, 330)) { spx(`vo_${4 + q.p.hero}`, P.x + q.tilt * 20, P.y - 48, 88, { rot: q.tilt * 0.5 }); if (SP.pl.length > 1) ptxt(`${q.p.slot + 1}P`, P.x, P.y - 160, 9, R.color, 'center'); continue; }
-    g.save(); g.translate(P.x, P.y); g.rotate(q.tilt);
-    g.lineWidth = 4; g.strokeStyle = '#1a1010';
-    const prop = Math.abs(Math.sin(T * 40));
-    for (const sx of [-1, 1]) { g.fillStyle = '#c8a060'; g.beginPath(); g.ellipse(sx * 110, 0, 60, 12, 0, 0, 7); g.fill(); g.stroke(); g.fillStyle = 'rgba(255,255,255,.6)'; g.beginPath(); g.ellipse(sx * 170, 0, 8, 40 * prop, 0, 0, 7); g.fill(); }
-    g.fillStyle = '#d8402a'; g.beginPath(); g.ellipse(0, 20, 70, 50, 0, 0, 7); g.fill(); g.stroke();
-    g.fillStyle = '#ffd35a'; g.beginPath(); g.arc(0, 60, 12, 0, 7); g.fill(); g.stroke();
-    g.fillStyle = '#6a4424'; g.beginPath(); g.ellipse(0, -35, 40, 42, 0, 0, 7); g.fill(); g.stroke();
-    const fur = ['#9a9aa4', '#2a2a30', '#6a4a30', '#c8a880'][q.p.hero];
-    g.fillStyle = fur; g.beginPath(); g.arc(0, -86, 30, 0, 7); g.fill(); g.stroke();
-    for (const sx of [-1, 1]) { g.beginPath(); g.moveTo(sx * 14, -110); g.lineTo(sx * 26, -140); g.lineTo(sx * 30, -104); g.fill(); g.stroke(); }
-    g.fillStyle = R.color; g.fillRect(-34, -64, 68, 12);
-    g.restore();
-    if (SP.pl.length > 1) ptxt(`${q.p.slot + 1}P`, P.x, P.y - 150, 9, R.color, 'center');
+    if (q.dead) continue;
+    const R = ROSTER[q.p.hero], ax = q.x, ay = q.y - 0.15;
+    const lock = SP.objs.some((o) => o.k === 'disco' && o.z > NEAR + 1 && Math.abs(o.x - ax) < DISC_HX && Math.abs(o.y - ay) < DISC_HY) || (B && !B.dead && Math.abs(B.x - ax) < 0.75 && Math.abs(B.y - ay) < 0.4);
+    for (const z of [2.2, 4.2]) {
+      const P = proj(ax, ay, z), hx = DISC_HX * 520 * P.s, hy = DISC_HY * 180 * P.s, c = Math.min(hx, hy) * 0.45;
+      g.strokeStyle = lock ? '#ff4a3a' : R.color; g.lineWidth = z < 3 ? 3 : 2; g.globalAlpha = z < 3 ? 0.9 : 0.6;
+      g.beginPath();
+      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { g.moveTo(P.x + sx * hx, P.y + sy * hy - sy * c); g.lineTo(P.x + sx * hx, P.y + sy * hy); g.lineTo(P.x + sx * hx - sx * c, P.y + sy * hy); }
+      g.stroke(); g.globalAlpha = 1;
+    }
   }
+  // the planes, seen from behind, with their shadow on the sea
+  for (const q of SP.pl) {
+    if (q.dead) continue;
+    const P = proj(q.x, q.y, NEAR), Q = proj(q.x, 1.15, NEAR), R = ROSTER[q.p.hero];
+    g.fillStyle = 'rgba(0,20,40,.25)'; g.beginPath(); g.ellipse(Q.x, Q.y, 150 - (Q.y - P.y) * 0.1, 16, 0, 0, 7); g.fill();
+    if (q.inv > 0 && Math.floor(T * 16) % 2) continue;
+    const bob = Math.sin(T * 3 + q.p.slot * 2) * 4, y = P.y + bob, fr = q.hurtT > 0 ? 3 : q.tilt > 0.1 ? 1 : q.tilt < -0.1 ? 2 : 0;
+    if (spx(`vo_${fr}`, P.x, y, 300, { rot: fr === 0 ? q.tilt * 0.3 : 0 })) { spx(`vo_${4 + q.p.hero}`, P.x + q.tilt * 20, y - 44, 80, { rot: q.tilt * 0.4 }); }
+    else { g.fillStyle = R.color; g.beginPath(); g.ellipse(P.x, y, 140, 24, q.tilt, 0, 7); g.fill(); }
+    if (SP.pl.length > 1) ptxt(`${q.p.slot + 1}P`, P.x, y - 110, 9, R.color, 'center');
+  }
+  near.forEach(drawObj);
   spFx(0, 0);
   if (!SP.boss) { const k = clamp(SP.dist / SP.len, 0, 1); g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(W / 2 - 200, 60, 400, 12); g.fillStyle = '#ffd35a'; g.fillRect(W / 2 - 200, 60, 400 * k, 12); ptxt('ETNA', W / 2 + 214, 72, 8, '#ffd35a'); }
 }
